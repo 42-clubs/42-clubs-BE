@@ -7,8 +7,8 @@ Modular Monolith를 지향하며, 기능별 패키지와 내부 Layered Architec
 MVP에서는 단일 Gradle 모듈로 시작합니다. 모듈 경계는 코드 리뷰와 아래 의존성 규칙으로 관리하며,
 현재 빌드 설정이 패키지 간 접근을 강제로 제한하지는 않습니다.
 
-Spring Boot 3.5.16과 Gradle 8.14.3을 사용합니다.
-Java 17 및 Gradle 8.x 호환 범위는 [Spring Boot 공식 문서](https://docs.spring.io/spring-boot/3.5/system-requirements.html)를 기준으로 합니다.
+구조 다이어그램과 기술 선정 현황은 [README](../README.md#아키텍처)를 참고합니다.
+실제 라이브러리 버전은 [build.gradle](../build.gradle)과 [Wrapper 설정](../gradle/wrapper/gradle-wrapper.properties)이 기준입니다.
 
 ## 기능 경계
 
@@ -17,12 +17,14 @@ Java 17 및 Gradle 8.x 호환 범위는 [Spring Boot 공식 문서](https://docs
 | auth | 로그인 등 인증 유스케이스. 인증 방식은 추후 결정 |
 | user | 교육생 계정과 사용자 정보 |
 | club | 동아리 기본 정보, 운영 상태, 모집 정보, 동아리 관리 권한 |
-| activity | 동아리별 활동 내역 |
+| activity | 동아리별 활동 내역, 지정 주최자와 참가자 출결 |
+| gathering (추가 예정) | 독립된 소모임, 반복 회차·가입·회차 참여와 출결 |
 | notice | 동아리별 공지사항 |
 | global | 기술 공통 설정, 예외 처리, 보안 인프라 |
 
 ClubManager는 별도 최상위 기능으로 만들지 않고 우선 club의 책임으로 봅니다.
-구체적인 엔티티와 관계는 도메인 모델링 및 ERD 단계에서 확정합니다.
+논의한 관계와 업무 규칙은 [도메인 관계 문서](domain-model.md)에 기록합니다.
+MVP 테이블·컬럼·핵심 키는 [확정 ERD](erd.md)를 기준으로 하며, JPA 매핑은 구현 단계에서 구체화합니다.
 모집 정보도 초기에는 club 안에서 관리합니다.
 
 ## 계층별 책임
@@ -53,18 +55,22 @@ club이 활동 등록 서비스를 다시 호출하는 구조는 피합니다.
 
 ## 구현 및 검증 방향
 
-두 개발자는 기능 단위로 Controller부터 Repository까지 구현하고 리뷰합니다.
-변경된 도메인 규칙과 권한 거부 사례를 우선 테스트하며,
-영속성 도입 후에는 필요한 Repository 및 트랜잭션 통합 테스트를 추가합니다.
-현재 테스트는 외부 DB나 인증 설정 없이 애플리케이션 컨텍스트가 로딩되는지 확인합니다.
+두 개발자는 기능 단위로 구현하고 리뷰합니다. 업무 정책은 [도메인 문서](domain-model.md),
+컬럼과 제약조건은 [ERD 명세](erd.md), 경로와 요청별 권한은 [API 초안](api-endpoints.md)을 참조합니다.
+변경 순서와 협업 규칙은 [README](../README.md#문서-관리-ssot)에서 관리합니다.
 
-## 다음 설계 단계
+### 데이터베이스
 
-1. 도메인 모델링: 동아리 운영·모집 상태, 관리 권한 관계와 변경 규칙
-2. ERD: 엔티티, 관계, 제약조건과 데이터베이스 선정
-3. 인증·인가: 42 OAuth 가용성, 세션/토큰 방식, 리소스 권한 검증
-4. API: 엔드포인트, 요청·응답, 오류 형식
-5. 설계 결과에 따른 패키지 조정 및 기능 구현
+- Flyway가 스키마 변경을 담당하고, JPA/Hibernate는 엔티티 매핑과 데이터 접근을 담당합니다.
+- DB 도입 시 Hibernate의 `ddl-auto`는 `validate`로 설정합니다.
+- 마이그레이션 SQL은 `src/main/resources/db/migration`에서 관리합니다.
+- 공유 환경에 적용된 마이그레이션은 수정하지 않고 새 버전 파일을 추가합니다.
+- PostgreSQL 연동 시 Flyway의 `flyway-database-postgresql` 모듈을 함께 사용합니다.
+- 개발 중에는 IDE에서 애플리케이션을 실행하고, Docker Compose로 로컬 PostgreSQL을 실행합니다.
 
-회원 관리, 활동보고, 사진, 결제 기능은 MVP 패키지에 미리 만들지 않습니다.
-배포 환경, Docker, CI/CD는 인프라 범위를 결정한 뒤 추가합니다.
+### 테스트 및 CI
+
+- JUnit 5와 Mockito는 `spring-boot-starter-test`가 제공하는 의존성을 사용합니다.
+- 도메인 규칙과 서비스 로직을 테스트하고, DB 제약조건·쿼리는 PostgreSQL 통합 테스트로 검증합니다.
+- 우선 검증할 사례는 타 동아리 수정 거부, 활동·공지의 소속 동아리 권한, 모집 기간 유효성, 관리 권한 중복입니다.
+- CI 도입 시 PR마다 `./gradlew build`를 실행합니다. CD는 배포 환경을 결정한 뒤 구성합니다.
