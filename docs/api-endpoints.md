@@ -39,8 +39,8 @@
 | GET | /clubs | 동아리 목록, operationStatus 필터 | 공개 |
 | GET | /clubs/{clubId} | 동아리 기본 정보·모집 안내 구현, 활동도 후속 | 공개 |
 | POST | /clubs | 동아리 생성 | 운영진 |
-| PATCH | /clubs/{clubId} | 소개·기본 정보 수정 | 해당 동아리 관리자 |
-| PUT | /clubs/{clubId}/recruitment | 모집 정보 전체 설정·갱신 | 해당 동아리 관리자 |
+| PATCH | /clubs/{clubId} | 소개·기본 정보 수정 | ACTIVE인 해당 동아리 관리자 |
+| PUT | /clubs/{clubId}/recruitment | 모집 정보 전체 설정·갱신 | ACTIVE인 해당 동아리 관리자 |
 | PATCH | /clubs/{clubId}/operation-status | 활성·아카이브 전환 | 운영진 |
 | GET | /clubs/{clubId}/managers | 관리자 목록 | 운영진 또는 해당 동아리 관리자 |
 | PUT | /clubs/{clubId}/managers/{userId} | 관리 권한 부여 | 운영진 |
@@ -48,7 +48,8 @@
 
 기본 목록에서는 아카이브를 제외하고 `operationStatus=ARCHIVED`로 아카이브를 조회합니다.
 동아리 물리 삭제 API는 없습니다. 상태 전이의 효과는 [도메인 정책](domain-model.md#게시-및-아카이브-정책--확정)을 따릅니다.
-운영진 역할만으로 소개·게시물 수정 권한을 부여하지 않습니다.
+운영진도 소개·모집 정보·게시물을 관리하려면 해당 동아리의 ClubManager 관계가 필요합니다.
+상태에 따른 쓰기 허용 범위는 [확정 정책](domain-model.md#상태별-변경-허용-범위--확정)을 따릅니다. 아카이브 상태로 차단되는 쓰기 요청은 상태 충돌(409)로 처리합니다.
 
 ### 동아리 공개 조회 — 구현 계약
 
@@ -147,19 +148,19 @@
 | --- | --- | --- | --- |
 | GET | /clubs/{clubId}/activities | 활동 목록 | 공개 |
 | GET | /activities/{activityId} | 활동 상세 | 공개 |
-| POST | /clubs/{clubId}/activities | 활동 등록, 주최자 지정 | 해당 동아리 관리자 |
-| PATCH | /activities/{activityId} | 활동 내용·주최자 변경 | 소속 동아리 관리자 |
+| POST | /clubs/{clubId}/activities | 활동 등록, 주최자 지정 | ACTIVE인 해당 동아리 관리자 |
+| PATCH | /activities/{activityId} | 활동 내용·주최자 변경 | ACTIVE인 소속 동아리 관리자 |
 | GET | /activities/{activityId}/participants | 참가자·출결 관리 명단 | 해당 활동 주최자 |
 | PUT | /activities/{activityId}/participants/{userId} | 참가자 등록 | 해당 활동 주최자 |
 | PATCH | /activities/{activityId}/participants/{userId}/attendance | 출결 체크·정정 | 해당 활동 주최자 |
 | GET | /clubs/{clubId}/notices | 공지 목록 | 공개 |
 | GET | /notices/{noticeId} | 공지 상세 | 공개 |
-| POST | /clubs/{clubId}/notices | 공지 등록 | 해당 동아리 관리자 |
-| PATCH | /notices/{noticeId} | 공지 수정 | 소속 동아리 관리자 |
+| POST | /clubs/{clubId}/notices | 공지 등록 | ACTIVE인 해당 동아리 관리자 |
+| PATCH | /notices/{noticeId} | 공지 수정 | ACTIVE인 소속 동아리 관리자 |
 
 참가자 제거와 게시물 삭제는 기록 보존 정책 확정 후 추가합니다.
 Activity는 날짜만 있으므로 시작 시각 이후 출결 제한을 적용하려면 시간 필드 또는 날짜 기준 정책을 먼저 정해야 합니다.
-아카이브 중 수정 허용 범위도 구현 전 확정합니다.
+아카이브 중 활동·공지 쓰기와 기존 활동의 참가자·출결 정정은 [확정 정책](domain-model.md#상태별-변경-허용-범위--확정)을 따릅니다. 기존 참가자 등록·출결 API의 주최자 권한은 유지하며, 참가자 제거 경로는 계속 보류합니다.
 
 ## 소모임과 개최 회차
 
