@@ -28,12 +28,12 @@
 | GET | /me/gathering-sessions | 회차별 참여 내역·본인 출결 | 로그인 |
 | GET | /me/activities | 주최·참여 활동 및 본인 출결 | 로그인 |
 | GET | /admin/users?intraLogin=... | 동아리 관리자 지정 대상 검색 | 운영진 |
-| GET | /admin/users/{userId}/clubs | 가입 승인 화면용 현재 가입 동아리 목록·개수 | 운영진 |
+| GET | /admin/users/{userId}/clubs | 가입 동아리 목록·운영 상태·한도 집계 개수 | 운영진 |
 | GET | /clubs/{clubId}/organizer-candidates?intraLogin=... | 활동 주최자 지정 대상 검색 | 해당 동아리 관리자 |
 | GET | /activities/{activityId}/participant-candidates?intraLogin=... | 활동 참가자 등록 대상 검색 | 해당 활동 주최자 |
 
 검색 결과는 내부 ID·Intra 로그인명·표시 이름으로 제한하는 초안입니다.
-가입 승인 화면은 별도의 `GET /admin/users/{userId}/clubs`로 ACTIVE인 가입 관계의 동아리 목록·개수와 동아리 운영 상태를 조회하여 승인 대상 옆에 표시합니다. LEFT 관계는 현재 가입 목록에서 제외합니다. 응답 DTO는 가입 관계 구현 시 확정합니다.
+가입 승인 화면은 별도의 `GET /admin/users/{userId}/clubs`로 ACTIVE인 가입 관계의 동아리 목록과 동아리 운영 상태를 조회하여 승인 대상 옆에 표시합니다. 아카이브 동아리는 기록을 표시하되 한도 제외로 구분하며, 목록 전체 개수와 [가입 한도 정책](domain-model.md#동아리-가입-한도--확정)에 따른 집계 개수를 별도로 제공합니다. LEFT 관계는 현재 가입 목록에서 제외합니다. 응답 DTO는 가입 관계 구현 시 확정합니다.
 
 ## 동아리와 운영진 관리
 
