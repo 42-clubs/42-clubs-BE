@@ -2,7 +2,7 @@
 
 다른 개발자가 기능의 진입점, 호출 방향, 상태 변경과 저장 위치를 따라갈 수 있도록 코드 흐름을 구성하는 가이드입니다.
 여기서 모듈은 `club`, `activity`, `notice` 같은 기능별 패키지를 뜻합니다. 독립적인 Gradle 모듈이나 배포 단위는 아닙니다.
-현재는 DB 기반·User·Club 엔티티와 동아리 공개 조회를 구현했습니다.
+현재는 DB 기반·User·Club 엔티티, 동아리 공개 조회, 42 OAuth 로그인·내 정보 조회를 구현했습니다.
 아래 동아리 조회 흐름은 실제 코드이며, 활동 등록 클래스·메서드 이름과 코드 흐름은 구현 예시입니다.
 
 패키지 책임과 의존성 규칙의 기준은 [아키텍처 문서](architecture.md)입니다.
@@ -11,7 +11,7 @@
 
 ## 이 구조를 사용하는 배경
 
-현재의 2인 개발과 MVP 범위에서는 단일 애플리케이션으로 실행·배포 부담을 줄이면서 기능별 책임을 구분하는 구조가 적합합니다.
+현재의 1인 개발과 MVP 범위에서는 단일 애플리케이션으로 실행·배포 부담을 줄이면서 기능별 책임을 구분하는 구조가 적합합니다.
 기능별 패키지는 관련 코드와 변경 범위를 모으고, 내부 계층은 HTTP 처리·유스케이스·상태 변경·영속성 접근을 구분합니다.
 연결된 기능을 같은 DB 트랜잭션에서 처리할 수 있지만, 기능별 독립 배포나 장애 격리를 제공하지는 않습니다.
 단일 Gradle 모듈은 패키지 간 접근을 강제하지 않으므로 코드와 리뷰에서 경계를 유지해야 합니다.
@@ -56,6 +56,29 @@ DTO 매핑은 트랜잭션 안에서 끝내고, Controller에는 엔티티를 �
 없는 동아리는 Service가 `ResourceNotFoundException`으로 알리고 `global/exception/GlobalExceptionHandler`가 404로 변환합니다.
 입력 변환·범위 검증 오류는 같은 처리기가 400으로 변환합니다.
 HTTP 계약은 [동아리 조회 명세](api-endpoints.md#동아리-공개-조회--구현-계약)를 따릅니다.
+
+## 실제 구현: 42 로그인
+
+```text
+GET /oauth2/authorization/42
+  → Spring Security: 인가 요청·state를 서버 세션에 저장, 42로 이동
+GET /login/oauth2/code/42
+  → Spring Security: state 검증·인가 코드 교환
+  → FortyTwoOAuth2UserService: 42 프로필 조회·경산 이메일 도메인 검증
+      → UserAccountService.synchronize42Profile [트랜잭션]
+          → UserRepository: intra_id 기준 원자적 INSERT / ON CONFLICT UPDATE
+          → UserIdentity: 내부 ID·기존 역할 반환
+      → AuthenticatedUser: 내부 ID·역할만 포함
+  → Spring Security: 세션 ID 교체·인증 저장·CSRF 초기화
+  → AUTH_SUCCESS_URL로 이동
+GET /api/v1/me
+  → CurrentUserFilter: UserAccountService로 현재 DB 역할 확인
+  → MeController → UserAccountService.findMe → MeResponse
+```
+
+인증은 user의 서비스와 DTO를 통해 협력하고 user의 Repository·엔티티를 직접 참조하지 않습니다. `global/security`의 인증 주체는 기능별 서비스에 의존하지 않습니다. 사용자 서비스를 참조하는 보안 설정·필터는 auth에 둡니다. 기존 계정 역할은 OAuth 프로필이 덮어쓰지 않으며, 로그인 후 변경된 역할도 다음 요청에서 반영합니다.
+
+OAuth 인가 요청은 Spring Security의 기본 서버 세션 저장소를 사용합니다. 설정 근거는 [공식 OAuth 인가 요청 저장소 문서](https://docs.spring.io/spring-security/reference/servlet/oauth2/client/authorization-grants.html)를 참고합니다.
 
 ## 예시: 동아리 활동 등록
 

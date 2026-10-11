@@ -14,7 +14,7 @@
 | Formatting | Spotless / Google Java Format (AOSP) | 채택 | 적용 완료 |
 | 반복 코드 생성 | Lombok | 채택 | 메인·테스트 annotation processor 설정, User·Club 및 서비스·Controller 적용 |
 | Web | Spring Web MVC | 확정 | 적용 완료 |
-| Security | Spring Security | 채택 | 인증·인가 설계 후 도입 |
+| Security | Spring Security | 적용 | 세션 인증·CSRF·USER/ADMIN 권한 검사 |
 | ORM | Spring Data JPA / Hibernate | 채택 | 적용 완료, User·Club 매핑 도입 |
 | Database | PostgreSQL 17.6 | 채택 | 로컬 Compose·테스트 컨테이너 구성 |
 | Validation | Jakarta Bean Validation | 확정 | Starter 적용 완료 |
@@ -23,8 +23,8 @@
 | Test | JUnit 5 / Mockito | 확정 | Starter 적용 완료 |
 | 개발용 DB 환경 | Docker Compose로 PostgreSQL 실행 | 채택 | 적용 완료 |
 | 애플리케이션 컨테이너화 | Docker | 검토 중 | 배포 환경 결정 후 검토 |
-| 로그인 제공자 | 42 인증 후 최초 로그인 시 계정 생성, 일반 회원가입 없음 | 설계 기준 확정 | 실제 연동 가능 여부 확인 및 구현 필요 |
-| 로그인 상태 유지 | 서버 세션 우선 검토, 토큰 방식과 비교 | 미정 | 프론트엔드·백엔드 도메인 구성 확인 후 결정 |
+| 로그인 제공자 | 42 OAuth, 경산 이메일 도메인 제한 | 구현 | 로컬 OAuth 제공자로 검증, 실제 42 자격증명으로 연동 확인 필요 |
+| 로그인 상태 유지 | 서버 메모리 세션, HttpOnly 쿠키 | 적용 | 8시간 미사용 만료, 서버 재시작 시 재로그인 |
 | CI | GitHub Actions에서 PR 빌드·테스트 | 채택 | 워크플로 도입 예정 |
 | CD | 배포 대상과 자동 배포 방식 | 미정 | 실제 배포 범위 결정 후 설계 |
 
@@ -74,6 +74,23 @@ Windows에서는 `gradlew.bat build`, `gradlew.bat bootRun`을 사용합니다.
 curl 'http://localhost:8080/api/v1/clubs?page=0&size=20'
 ```
 
+## 42 로그인 실행
+
+사물함 서비스 `ft_cabinet_BE`의 42 OAuth 설정·경산 이메일 도메인 검사·최초 사용자 등록 흐름을 참고하여 현재 기능별 계층 구조에 맞게 구현했습니다. JWT·Redis 대신 서버 세션을 사용합니다. 인증 설정과 OAuth 유스케이스는 auth, 사용자 저장·조회는 user, 기능에 의존하지 않는 인증 주체는 global/security에 둡니다.
+
+`.env.example`의 인증 변수를 셸 또는 IDE에 설정하고 `AUTH_ENABLED=true`로 실행합니다. `FT_CLIENT_ID`·`FT_CLIENT_SECRET`은 동아리 서비스용 42 OAuth 앱의 값을 사용하며, 42 앱에 등록한 콜백과 `FT_REDIRECT_URI`가 같아야 합니다. 실제 자격증명이 없으면 기본값인 `AUTH_ENABLED=false`로 공개 조회를 실행할 수 있으며 로그인 시작은 제공하지 않습니다. 비밀값은 저장소에 커밋하지 않습니다.
+
+- 로그인 시작: 브라우저에서 `GET /oauth2/authorization/42`로 이동합니다.
+- 콜백: `GET /login/oauth2/code/42`에서 인증을 마친 뒤 `AUTH_SUCCESS_URL`로 이동합니다.
+- 내 정보: `GET /api/v1/me`에 세션 쿠키를 포함합니다.
+- CSRF: `GET /api/v1/auth/csrf`의 `headerName`·`token`을 읽어 변경 요청 헤더에 보냅니다. 로그인·로그아웃 뒤에는 다시 조회합니다.
+- 로그아웃: CSRF 헤더와 세션 쿠키를 포함한 `POST /api/v1/auth/logout`은 204를 반환합니다.
+
+프론트엔드 fetch는 `credentials: 'include'`를 사용하고 `AUTH_ALLOWED_ORIGINS`에 정확한 프론트엔드 origin을 설정합니다. 로컬 기본값은 `http://localhost:5173`입니다. HTTPS 배포는 `AUTH_COOKIE_SECURE=true`로 설정합니다. 서로 다른 사이트에 배포할 때는 `AUTH_COOKIE_SAME_SITE=none`과 Secure 설정이 필요하며 브라우저의 타사 쿠키 제한도 확인합니다. 가능하면 같은 사이트에 배포합니다.
+
+최초 사용자는 USER로 등록됩니다. 최초 ADMIN 지정은 운영자가 DB에서 수행하며 일반 사용자가 역할을 바꾸는 API는 제공하지 않습니다. 세션은 서버 메모리에 보관하므로 재시작하면 다시 로그인해야 합니다. 다중 서버 운영이 필요해지면 공유 세션 저장소를 별도 도입합니다.
+현재 블랙홀 판정·개인정보 제거는 미구현이며 별도 정책 확정 후 연결합니다. 이번 로그인 구현은 기존 users 스키마를 사용하고 DB 마이그레이션을 추가하지 않습니다. API 계약은 [인증 명세](docs/api-endpoints.md#인증--구현-계약)를 따릅니다.
+
 ## 코드 포맷팅
 
 [Spotless](https://github.com/diffplug/spotless/tree/main/plugin-gradle)를 통해 Java 소스와 테스트의 포맷을 통일합니다.
@@ -98,8 +115,8 @@ IDE 자체 포맷터와 결과가 다를 경우 Spotless 설정을 기준으로 
 ## 아키텍처
 
 Modular Monolith + Package by Feature + Layered Architecture를 적용합니다.
-아래는 목표 구조이며, DB 기반·User·Club 매핑과 동아리 공개 조회를 구현했습니다.
-인증·쓰기 API·활동·공지·소모임 기능은 아직 구현 전입니다.
+아래는 목표 구조이며, DB 기반·User·Club 매핑·동아리 공개 조회·42 로그인·내 정보 조회를 구현했습니다.
+동아리 쓰기 API·활동·공지·소모임 기능은 아직 구현 전입니다.
 
 ```mermaid
 flowchart TB

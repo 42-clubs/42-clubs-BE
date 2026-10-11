@@ -15,3 +15,21 @@ spring:
           time_zone: UTC
   flyway:
     enabled: true
+
+server:
+  servlet:
+    session:
+      timeout: 8h
+      cookie:
+        http-only: true
+        secure: ${AUTH_COOKIE_SECURE:false}
+        same-site: ${AUTH_COOKIE_SAME_SITE:lax}
+
+app:
+  auth:
+    enabled: ${AUTH_ENABLED:false}
+    client-id: ${FT_CLIENT_ID:}
+    client-secret: ${FT_CLIENT_SECRET:}
+    redirect-uri: ${FT_REDIRECT_URI:http://localhost:8080/login/oauth2/code/42}
+    success-url: ${AUTH_SUCCESS_URL:http://localhost:5173/auth/callback}
+    allowed-origins: ${AUTH_ALLOWED_ORIGINS:http://localhost:5173}
