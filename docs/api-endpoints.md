@@ -15,7 +15,7 @@
 - 목록은 페이지네이션을 적용하며 상세 매개변수는 후속 합의합니다.
 - 생성은 201, 일반 조회·수정은 200 또는 본문 없는 204를 사용합니다. 구체적인 응답은 DTO 단계에서 고정합니다.
 - 인증 실패 401, 권한 부족 403, 대상 없음 404, 입력 오류 400, 정원·상태 충돌 409를 기본으로 합니다.
-- DELETE 참여 요청은 관계 물리 삭제가 아닌 취소 상태 변경입니다. 삭제 정책 미정인 게시물 삭제 경로는 보류합니다.
+- DELETE 참여 요청은 관계 물리 삭제가 아닌 취소 상태 변경입니다. 활동·공지의 DELETE는 [삭제 정책](domain-model.md#활동공지-삭제와-기록-보존--확정)에 따른 논리 삭제입니다.
 
 ## 내 정보와 사용자 선택
 
@@ -151,6 +151,7 @@
 | GET | /activities/{activityId} | 활동 상세 | 공개 |
 | POST | /clubs/{clubId}/activities | 활동 등록, 주최자 지정 | ACTIVE인 해당 동아리 관리자 |
 | PATCH | /activities/{activityId} | 활동 내용·주최자 변경 | ACTIVE인 소속 동아리 관리자 |
+| DELETE | /activities/{activityId} | 활동 논리 삭제 | ACTIVE인 소속 동아리 관리자 |
 | GET | /activities/{activityId}/participants | 참가자·출결 관리 명단 | 해당 활동 주최자 |
 | PUT | /activities/{activityId}/participants/{userId} | 참가자 등록 | 해당 활동 주최자 |
 | PATCH | /activities/{activityId}/participants/{userId}/attendance | 출결 체크·정정 | 해당 활동 주최자 |
@@ -158,11 +159,12 @@
 | GET | /notices/{noticeId} | 공지 상세 | 공개 |
 | POST | /clubs/{clubId}/notices | 공지 등록 | ACTIVE인 해당 동아리 관리자 |
 | PATCH | /notices/{noticeId} | 공지 수정 | ACTIVE인 소속 동아리 관리자 |
+| DELETE | /notices/{noticeId} | 공지 논리 삭제 | ACTIVE인 소속 동아리 관리자 |
 
 활동 생성 API는 [주최자 정책](domain-model.md#동아리-활동-주최자--확정)에 따라 지정된 주최자의 참가 관계도 자동 생성합니다.
 활동 출결 API는 대상 userId가 현재 주최자 본인인 경우에도 [주최자 정책](domain-model.md#동아리-활동-주최자--확정)에 따라 체크·정정을 허용합니다. 체크 사용자·시각은 서버에서 기록합니다.
 활동 수정 API의 주최자 변경은 [확정된 변경 정책](domain-model.md#활동-주최자-변경--확정)에 따라 참가 관계를 처리하며, 이후 명단·출결 API의 권한은 변경된 organizer_id로 검사합니다.
-참가자 제거와 게시물 삭제는 기록 보존 정책 확정 후 추가합니다.
+활동·공지 삭제 API와 삭제 후 조회·변경 제한은 [삭제 정책](domain-model.md#활동공지-삭제와-기록-보존--확정)을 따릅니다. 일반 목록은 삭제된 게시물을 제외하며 일반 상세는 404로 응답합니다. 삭제 후 참가·출결 기록은 `/me/activities`에서 본인 내역만, `GET /activities/{activityId}/participants`에서 현재 주최자의 관리 명단만 조회합니다. 삭제된 활동의 변경 요청은 상태 충돌(409)로 처리합니다. 참가자 제거 API는 별도 정책 확정 후 추가합니다.
 Activity는 날짜만 있으므로 시작 시각 이후 출결 제한을 적용하려면 시간 필드 또는 날짜 기준 정책을 먼저 정해야 합니다.
 아카이브 중 활동·공지 쓰기와 기존 활동의 참가자·출결 정정은 [확정 정책](domain-model.md#상태별-변경-허용-범위--확정)을 따릅니다. 기존 참가자 등록·출결 API의 주최자 권한은 유지하며, 참가자 제거 경로는 계속 보류합니다.
 
