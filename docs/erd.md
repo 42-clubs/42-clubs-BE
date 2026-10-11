@@ -1,6 +1,6 @@
 # MVP ERD — 확정 기준
 
-[도메인 관계 및 업무 규칙](domain-model.md)을 바탕으로 기존 MVP 기준은 아래 10개 테이블입니다. 사용자별 동아리 가입 한도 요구가 추가되어 가입 관계를 관리할 테이블 확장이 후속 설계 대상입니다.
+[도메인 관계 및 업무 규칙](domain-model.md)을 바탕으로 MVP 기준은 club_members 가입 관계를 포함한 아래 11개 테이블입니다.
 변경 순서는 [README의 SSOT 규칙](../README.md#문서-관리-ssot)을 따릅니다.
 이 문서는 구현 기준입니다. 현재 `users`는 V1, `clubs`는 V2 마이그레이션과 해당 엔티티로 구현했으며,
 나머지 테이블은 기능 구현 순서에 따라 추가합니다.
@@ -74,6 +74,26 @@
 - UNIQUE(user_id, club_id)로 관리 권한 중복을 방지합니다.
 - 동아리별 관리자는 0명 이상이며, 사용자도 여러 동아리를 관리할 수 있습니다.
 - 별도 관리자 등급이나 동아리 회원 관계를 표현하지 않습니다.
+
+## club_members — 동아리 가입 관계
+
+| 컬럼 | 타입 | 필수 | 제약 및 의미 |
+| --- | --- | --- | --- |
+| id | BIGINT | O | PK |
+| user_id | BIGINT | O | FK → users.id, 가입 사용자 |
+| club_id | BIGINT | O | FK → clubs.id |
+| status | VARCHAR(20) | O | ACTIVE / LEFT |
+| approved_by | BIGINT | O | FK → users.id, 최근 가입을 승인한 운영자 |
+| joined_at | TIMESTAMPTZ | O | 최근 가입·재가입 시각 |
+| left_at | TIMESTAMPTZ | 조건부 | LEFT이면 필수, ACTIVE이면 NULL |
+| created_at | TIMESTAMPTZ | O | 가입 관계 최초 생성 시각 |
+| updated_at | TIMESTAMPTZ | O | 마지막 상태 변경 시각 |
+
+- UNIQUE(user_id, club_id)로 동일 사용자·동아리 관계를 하나만 유지합니다.
+- CHECK로 status 허용값과 LEFT의 left_at 존재·ACTIVE의 left_at 부재를 검증합니다.
+- left_at이 있으면 joined_at 이상이어야 합니다. 재가입 시 created_at은 유지하며 joined_at·approved_by를 갱신하고 left_at을 NULL로 변경합니다.
+- approved_by의 ADMIN 권한은 가입 등록·재가입 유스케이스에서 검증합니다. FK만으로 승인 권한을 판단하지 않습니다.
+- 현재 미구현이며 향후 해당 테이블 최초 마이그레이션에 포함합니다. 가입 수를 강제 제한하는 DB 제약은 도입하지 않습니다. 업무 기준은 [가입 관계 정책](domain-model.md#동아리-가입-관계--확정)을 따릅니다.
 
 ## activities
 
@@ -203,6 +223,8 @@
 | users | UNIQUE(intra_id) | 42 계정 조회 및 중복 방지 |
 | club_managers | UNIQUE(user_id, club_id) | 권한 확인, 사용자별 관리 동아리 조회 |
 | club_managers | INDEX(club_id) | 동아리별 관리자 조회 |
+| club_members | UNIQUE(user_id, club_id) | 사용자 가입 동아리 조회·중복 관계 방지 |
+| club_members | INDEX(club_id, status) | 동아리별 가입 회원 조회 |
 | activities | INDEX(club_id, activity_date) | 동아리별 활동 조회와 활동도 집계 |
 | notices | INDEX(club_id, created_at) | 동아리별 공지 조회 |
 | gatherings | INDEX(organizer_id) | 주최한 소모임 조회 |
@@ -218,9 +240,9 @@ PK에는 기본 인덱스가 존재합니다. 추가 인덱스는 API 조회 조
 
 ## 확정 범위와 후속 설계
 
-[동아리 가입 한도](domain-model.md#동아리-가입-한도--확정)를 적용할 가입 관계는 club_managers와 별개로 설계해야 합니다. 현재 10개 테이블에는 해당 관계가 없으며 추가 테이블·가입 관계 중복 방지 제약 확정 후 관계도와 명세를 갱신합니다. 최대 2개 가입 정책은 ADMIN 운영자가 가입 내역을 확인하고 승인하는 방식으로 적용하며 가입 수를 강제 제한하는 DB 제약은 도입하지 않습니다.
+[동아리 가입 관계](domain-model.md#동아리-가입-관계--확정)는 club_members로 관리하며 club_managers 권한 관계와 분리합니다. 최대 2개 정책은 ADMIN 운영자가 가입 내역을 확인하고 승인하는 방식으로 적용합니다.
 
-10개 테이블과 관계·핵심 키를 MVP 기준으로 삼습니다. 모임 목적·반복 규칙·고정 멤버 모집·취소 등 후속 컬럼은 도메인 정책 확정 후 보완해야 하므로 아직 전체 스키마가 구현 가능한 최종본은 아닙니다.
+11개 테이블과 관계·핵심 키를 MVP 기준으로 삼습니다. 모임 목적·반복 규칙·고정 멤버 모집·취소 등 후속 컬럼은 도메인 정책 확정 후 보완해야 하므로 아직 전체 스키마가 구현 가능한 최종본은 아닙니다.
 42 API 실제 연동 가능 여부 및 인증 세션/토큰 방식은 아직 검증·설계가 필요합니다.
 블랙홀에 따른 사용자 정보 정리, 기록 보존 기한·영구 파기 절차 등 남은 정책은
 [도메인 문서](domain-model.md)의 후속 항목으로 관리합니다.

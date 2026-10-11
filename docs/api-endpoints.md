@@ -33,17 +33,18 @@
 | GET | /activities/{activityId}/participant-candidates?intraLogin=... | 활동 참가자 등록 대상 검색 | 해당 활동 주최자 |
 
 검색 결과는 내부 ID·Intra 로그인명·표시 이름으로 제한하는 초안입니다.
-가입 승인 화면은 별도의 `GET /admin/users/{userId}/clubs`로 현재 가입 동아리 정보를 조회하여 승인 대상 옆에 표시합니다. 응답 DTO는 가입 관계 구현 시 확정합니다.
+가입 승인 화면은 별도의 `GET /admin/users/{userId}/clubs`로 ACTIVE인 가입 관계의 동아리 목록·개수와 동아리 운영 상태를 조회하여 승인 대상 옆에 표시합니다. LEFT 관계는 현재 가입 목록에서 제외합니다. 응답 DTO는 가입 관계 구현 시 확정합니다.
 
 ## 동아리와 운영진 관리
 
-동아리 회원 가입·탈퇴·명단 API는 [가입 한도 정책](domain-model.md#동아리-가입-한도--확정)에 따라 후속 설계합니다. 가입 승인 API의 권한은 ADMIN이며 ClubManager 관계만으로 허용하지 않습니다. 가입 동아리 수에 따른 자동 차단은 두지 않고 운영자에게 현재 가입 정보를 제공합니다. 관리자 권한 API를 회원 가입 API로 사용하지 않습니다.
+동아리 회원 가입 등록·재가입 API는 [가입 관계 정책](domain-model.md#동아리-가입-관계--확정)을 따릅니다. 지원은 외부에서 진행하며 내부 가입 신청·승인 대기·거절 API는 두지 않습니다. 탈퇴 권한·시점과 명단 조회 권한은 후속 설계합니다. 가입 승인 API의 권한은 ADMIN이며 ClubManager 관계만으로 허용하지 않습니다. 가입 동아리 수에 따른 자동 차단은 두지 않고 운영자에게 현재 가입 정보를 제공합니다. 관리자 권한 API를 회원 가입 API로 사용하지 않습니다.
 
 | 메서드 | 경로 | 기능 | 권한 |
 | --- | --- | --- | --- |
 | GET | /clubs | 동아리 목록, operationStatus 필터 | 공개 |
 | GET | /clubs/{clubId} | 동아리 기본 정보·모집 안내 구현, 활동도 후속 | 공개 |
 | POST | /clubs | 동아리 생성 | 운영진 |
+| PUT | /admin/clubs/{clubId}/members/{userId} | 외부 결과 확인 후 가입 등록·재가입 승인 | 운영진 |
 | PATCH | /clubs/{clubId} | 소개·기본 정보 수정 | ACTIVE인 해당 동아리 관리자 |
 | PUT | /clubs/{clubId}/recruitment | 모집 정보 전체 설정·갱신 | ACTIVE인 해당 동아리 관리자 |
 | PATCH | /clubs/{clubId}/operation-status | 활성·아카이브 전환 | 운영진 |
