@@ -24,14 +24,19 @@
 | 컬럼 | 타입 | 필수 | 제약 및 의미 |
 | --- | --- | --- | --- |
 | id | BIGINT | O | PK |
-| intra_id | BIGINT | O | UNIQUE, 42 사용자 고유 ID |
-| intra_login | VARCHAR(100) | O | Intra 로그인명, 계정 연결 기준으로 사용하지 않음 |
-| display_name | VARCHAR(100) | O | 표시 이름 |
-| role | VARCHAR(20) | O | USER / ADMIN, 기본값 USER |
+| intra_id | BIGINT | 조건부 | UNIQUE, ACTIVE이면 필수, BLACKHOLED이면 NULL |
+| intra_login | VARCHAR(100) | 조건부 | ACTIVE이면 필수, BLACKHOLED이면 NULL. 계정 연결 기준으로 사용하지 않음 |
+| display_name | VARCHAR(100) | 조건부 | ACTIVE이면 필수, BLACKHOLED이면 NULL |
+| role | VARCHAR(20) | O | USER / ADMIN, 기본값 USER. BLACKHOLED이면 USER |
+| account_status | VARCHAR(20) | O | ACTIVE / BLACKHOLED, 기본값 ACTIVE |
 | created_at | TIMESTAMPTZ | O | 계정 생성 시각 |
 | updated_at | TIMESTAMPTZ | O | 수정 시각 |
 
-동아리 탈퇴는 가입 관계만 변경하며 이 사용자 테이블의 이름·로그인명은 유지합니다. 블랙홀 사용자에 대한 Blackholed 표시·정보 제거 방향과 후속 설계는 [이용 자격 정책](domain-model.md#사용자-이용-자격-및-정보-정리)을 따릅니다. 현재 명세의 필수 사용자 FK와 연쇄 삭제 없음은 유지하며, 삭제 범위·참조 처리 확정 후 스키마를 동기화합니다.
+- id는 블랙홀 처리 후에도 유지하므로 기존 사용자 FK와 연쇄 삭제 없음 원칙은 유지합니다.
+- CHECK로 계정 상태 허용값과 상태별 식별 정보 NULL 여부·BLACKHOLED의 USER 역할을 검증합니다. 화면 표시 Blackholed는 개인정보 필드에 저장하지 않고 account_status에서 결정합니다.
+- 현재 V1·User 엔티티에는 account_status가 없고 세 식별 정보가 NOT NULL입니다. 위 계정 상태·조건부 NULL 명세는 후속 인증·사용자 기능 구현 시 반영할 목표 설계이며 이번 정책 확정에서 마이그레이션이나 코드를 변경하지 않습니다.
+
+동아리 탈퇴는 가입 관계만 변경하며 이 사용자 테이블의 이름·로그인명은 유지합니다. 블랙홀 처리 기준은 [이용 자격 정책](domain-model.md#사용자-이용-자격-및-정보-정리)을 따릅니다.
 계정 생성·권한 부여 정책은 [도메인 문서](domain-model.md#사용자-역할과-동아리-관리-권한)를 참조합니다.
 
 ## clubs
