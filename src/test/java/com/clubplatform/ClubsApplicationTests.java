@@ -32,7 +32,7 @@ class ClubsApplicationTests {
     void contextLoadsWithMigratedAndValidatedSchema() {
         assertThat(flyway.info().applied())
                 .extracting(migration -> migration.getVersion().getVersion())
-                .contains("1", "2");
+                .containsExactly("1", "2");
         assertThat(flyway.info().pending()).isEmpty();
         flyway.validate();
     }
