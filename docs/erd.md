@@ -56,6 +56,7 @@
 - 모집 계획이 있으면 시작일과 지원 방법이 필수입니다.
 - 종료일이 있으면 시작일도 존재하고 종료일 >= 시작일이어야 합니다.
 - recruitment_closed_early가 true이면 recruitment_planned도 true여야 합니다.
+- [모집 계획 취소](domain-model.md#모집-계획-취소--확정) 시 recruitment_planned와 recruitment_closed_early는 false, recruitment_start_date·recruitment_end_date·application_method·application_url은 NULL로 저장합니다. 이 초기화는 후속 모집 쓰기 유스케이스에서 처리하며, 현재 DB CHECK는 이 NULL 조합 전체를 강제하지 않습니다.
 
 상태 변경과 아카이브·재모집 동작은 [도메인 정책](domain-model.md#게시-및-아카이브-정책--확정)을 따릅니다.
 활동도·표시용 모집 상태는 파생 값이며 저장 컬럼을 두지 않습니다. 별도 아카이브 테이블이나 archived_at 컬럼은 없습니다.
@@ -212,6 +213,6 @@ PK에는 기본 인덱스가 존재합니다. 추가 인덱스는 API 조회 조
 
 10개 테이블과 관계·핵심 키를 MVP 기준으로 삼습니다. 모임 목적·반복 규칙·고정 멤버 모집·취소 등 후속 컬럼은 도메인 정책 확정 후 보완해야 하므로 아직 전체 스키마가 구현 가능한 최종본은 아닙니다.
 42 API 실제 연동 가능 여부 및 인증 세션/토큰 방식은 아직 검증·설계가 필요합니다.
-사용자 탈퇴, 게시물 삭제·보존, 모집 계획 취소 시 값 정리, 기간 집계 경계 등 남은 정책은
+사용자 탈퇴, 게시물 삭제·보존, 기간 집계 경계 등 남은 정책은
 [도메인 문서](domain-model.md)의 후속 항목으로 관리합니다.
 남은 정책의 기준은 [도메인 문서의 미정 사항](domain-model.md#남은-결정-사항)이며 작업 순서는 README를 따릅니다.
