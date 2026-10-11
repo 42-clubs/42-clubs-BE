@@ -2,7 +2,7 @@
 
 [도메인 관계 및 업무 규칙](domain-model.md)을 바탕으로 MVP는 아래 10개 테이블로 구성합니다.
 변경 순서는 [README의 SSOT 규칙](../README.md#문서-관리-ssot)을 따릅니다.
-이 문서는 구현 기준입니다. 현재 `users`는 V1, `clubs`는 V2 마이그레이션과 해당 엔티티로 구현했으며,
+이 문서는 구현 기준입니다. 현재 `users`는 V1, `clubs`는 V2 생성·V3 운영 상태 정리 마이그레이션과 해당 엔티티로 구현했으며,
 나머지 테이블은 기능 구현 순서에 따라 추가합니다.
 
 ## 관계도
@@ -41,7 +41,7 @@
 | name | VARCHAR(100) | O | 동아리 이름, 현재 UNIQUE 없음 |
 | summary | VARCHAR(200) | O | 목록용 짧은 소개 |
 | description | TEXT | O | 상세 소개 |
-| operation_status | VARCHAR(20) | O | ACTIVE / DORMANT / ARCHIVED |
+| operation_status | VARCHAR(20) | O | ACTIVE / ARCHIVED |
 | recruitment_planned | BOOLEAN | O | 모집 계획 여부, 기본값 false |
 | recruitment_start_date | DATE | 조건부 | 모집 계획이 있으면 필수 |
 | recruitment_end_date | DATE | X | 없으면 시작일부터 상시 모집 |

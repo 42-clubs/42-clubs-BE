@@ -55,14 +55,14 @@ class ClubQueryIntegrationTests {
     @Test
     void listExcludesArchivedClubsAndReturnsStablePagination() throws Exception {
         long activeId = insertClub("Active", OperationStatus.ACTIVE);
-        long dormantId = insertClub("Dormant", OperationStatus.DORMANT);
+        long secondActiveId = insertClub("Second active", OperationStatus.ACTIVE);
         insertClub("Archived", OperationStatus.ARCHIVED);
 
         mockMvc.perform(get("/api/v1/clubs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.content[0].id").value(activeId))
-                .andExpect(jsonPath("$.content[1].id").value(dormantId))
+                .andExpect(jsonPath("$.content[1].id").value(secondActiveId))
                 .andExpect(jsonPath("$.content[0].recruitmentStatus").value("NOT_RECRUITING"))
                 .andExpect(jsonPath("$.content[0].description").doesNotExist())
                 .andExpect(jsonPath("$.content[0].createdAt").doesNotExist())
@@ -74,7 +74,7 @@ class ClubQueryIntegrationTests {
         mockMvc.perform(get("/api/v1/clubs").param("page", "1").param("size", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
-                .andExpect(jsonPath("$.content[0].id").value(dormantId))
+                .andExpect(jsonPath("$.content[0].id").value(secondActiveId))
                 .andExpect(jsonPath("$.page").value(1))
                 .andExpect(jsonPath("$.size").value(1))
                 .andExpect(jsonPath("$.totalElements").value(2))
@@ -196,7 +196,6 @@ class ClubQueryIntegrationTests {
                         false,
                         "CLOSED"),
                 Arguments.of(OperationStatus.ACTIVE, TODAY.plusDays(1), null, true, "CLOSED"),
-                Arguments.of(OperationStatus.DORMANT, TODAY, null, false, "CLOSED"),
                 Arguments.of(OperationStatus.ARCHIVED, TODAY, null, false, "CLOSED"));
     }
 
@@ -221,6 +220,7 @@ class ClubQueryIntegrationTests {
                 "/api/v1/clubs?size=101",
                 "/api/v1/clubs?size=abc",
                 "/api/v1/clubs?operationStatus=UNKNOWN",
+                "/api/v1/clubs?operationStatus=DORMANT",
                 "/api/v1/clubs/0",
                 "/api/v1/clubs/-1",
                 "/api/v1/clubs/abc"
@@ -251,6 +251,7 @@ class ClubQueryIntegrationTests {
     @ValueSource(
             strings = {
                 "operation_status = 'UNKNOWN'",
+                "operation_status = 'DORMANT'",
                 "recruitment_planned = true",
                 "recruitment_planned = true, recruitment_start_date = DATE '2026-10-12'",
                 "recruitment_end_date = DATE '2026-10-12'",

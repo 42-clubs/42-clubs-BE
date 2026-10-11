@@ -8,6 +8,7 @@ import com.clubplatform.user.entity.User;
 import com.clubplatform.user.entity.UserRole;
 import jakarta.persistence.EntityManager;
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -32,9 +33,71 @@ class ClubsApplicationTests {
     void contextLoadsWithMigratedAndValidatedSchema() {
         assertThat(flyway.info().applied())
                 .extracting(migration -> migration.getVersion().getVersion())
-                .contains("1", "2");
+                .containsExactly("1", "2", "3");
         assertThat(flyway.info().pending()).isEmpty();
         flyway.validate();
+    }
+
+    /** 기존 휴면 데이터를 전환하고 기존 활성·아카이브 및 모집 정보를 보존하는지 검증한다. */
+    @Test
+    void migratesDormantClubsWithoutReopeningRecruitment() {
+        String schema = "club_status_migration_test";
+        Flyway legacy =
+                Flyway.configure()
+                        .dataSource(jdbcTemplate.getDataSource())
+                        .schemas(schema)
+                        .defaultSchema(schema)
+                        .target("2")
+                        .load();
+        try {
+            legacy.migrate();
+            jdbcTemplate.update(
+                    """
+                    INSERT INTO club_status_migration_test.clubs
+                        (name, summary, description, operation_status, recruitment_planned,
+                         recruitment_start_date, application_method, created_at, updated_at)
+                    VALUES
+                        ('Dormant recruiting', 'Summary', 'Description', 'DORMANT', true,
+                         DATE '2026-10-01', 'External application', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+                        ('Dormant idle', 'Summary', 'Description', 'DORMANT', false,
+                         NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+                        ('Active', 'Summary', 'Description', 'ACTIVE', true,
+                         DATE '2026-10-01', 'External application', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+                        ('Archived', 'Summary', 'Description', 'ARCHIVED', false,
+                         NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """);
+
+            Flyway current =
+                    Flyway.configure()
+                            .configuration(legacy.getConfiguration())
+                            .target(MigrationVersion.LATEST)
+                            .load();
+            current.migrate();
+            current.validate();
+
+            assertThat(
+                            jdbcTemplate.queryForList(
+                                    "SELECT operation_status FROM club_status_migration_test.clubs ORDER BY id",
+                                    String.class))
+                    .containsExactly("ACTIVE", "ACTIVE", "ACTIVE", "ARCHIVED");
+            assertThat(
+                            jdbcTemplate.queryForList(
+                                    "SELECT recruitment_closed_early FROM club_status_migration_test.clubs ORDER BY id",
+                                    Boolean.class))
+                    .containsExactly(true, false, false, false);
+            assertThat(
+                            jdbcTemplate.queryForObject(
+                                    "SELECT application_method FROM club_status_migration_test.clubs WHERE name = 'Dormant recruiting'",
+                                    String.class))
+                    .isEqualTo("External application");
+            assertThatThrownBy(
+                            () ->
+                                    jdbcTemplate.update(
+                                            "UPDATE club_status_migration_test.clubs SET operation_status = 'DORMANT' WHERE name = 'Dormant idle'"))
+                    .isInstanceOf(DataIntegrityViolationException.class);
+        } finally {
+            jdbcTemplate.execute("DROP SCHEMA " + schema + " CASCADE");
+        }
     }
 
     /** JPA로 저장·재조회한 사용자의 정보·기본 역할·시각을 검증한다. */
