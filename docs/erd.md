@@ -189,6 +189,7 @@
 
 - UNIQUE(activity_id, user_id)로 중복을 방지합니다.
 - 출결 최초 상태는 UNCHECKED이며 체크 사용자·시각은 NULL입니다. 체크 시 사용자·시각을 함께 기록합니다.
+- 활동 주최자의 본인 출결 체크 시 user_id와 attendance_checked_by가 같은 사용자 ID일 수 있습니다. 허용 범위는 [주최자 정책](domain-model.md#동아리-활동-주최자--확정)을 따릅니다.
 - 출결 사용자 FK는 기록 목적입니다. 실제 권한은 현재 activities.organizer_id 또는 gatherings.organizer_id로 검증합니다.
 
 ## 초기 인덱스
