@@ -28,14 +28,16 @@
 | GET | /me/gathering-sessions | 회차별 참여 내역·본인 출결 | 로그인 |
 | GET | /me/activities | 주최·참여 활동 및 본인 출결 | 로그인 |
 | GET | /admin/users?intraLogin=... | 동아리 관리자 지정 대상 검색 | 운영진 |
+| GET | /admin/users/{userId}/clubs | 가입 승인 화면용 현재 가입 동아리 목록·개수 | 운영진 |
 | GET | /clubs/{clubId}/organizer-candidates?intraLogin=... | 활동 주최자 지정 대상 검색 | 해당 동아리 관리자 |
 | GET | /activities/{activityId}/participant-candidates?intraLogin=... | 활동 참가자 등록 대상 검색 | 해당 활동 주최자 |
 
 검색 결과는 내부 ID·Intra 로그인명·표시 이름으로 제한하는 초안입니다.
+가입 승인 화면은 별도의 `GET /admin/users/{userId}/clubs`로 현재 가입 동아리 정보를 조회하여 승인 대상 옆에 표시합니다. 응답 DTO는 가입 관계 구현 시 확정합니다.
 
 ## 동아리와 운영진 관리
 
-동아리 회원 가입·탈퇴·명단 API는 [가입 한도 정책](domain-model.md#동아리-가입-한도--확정)에 따라 후속 설계합니다. 관리자 권한 API를 회원 가입 API로 사용하지 않습니다.
+동아리 회원 가입·탈퇴·명단 API는 [가입 한도 정책](domain-model.md#동아리-가입-한도--확정)에 따라 후속 설계합니다. 가입 승인 API의 권한은 ADMIN이며 ClubManager 관계만으로 허용하지 않습니다. 가입 동아리 수에 따른 자동 차단은 두지 않고 운영자에게 현재 가입 정보를 제공합니다. 관리자 권한 API를 회원 가입 API로 사용하지 않습니다.
 
 | 메서드 | 경로 | 기능 | 권한 |
 | --- | --- | --- | --- |
