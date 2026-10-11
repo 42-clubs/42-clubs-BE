@@ -41,7 +41,7 @@
 | name | VARCHAR(100) | O | 동아리 이름, 현재 UNIQUE 없음 |
 | summary | VARCHAR(200) | O | 목록용 짧은 소개 |
 | description | TEXT | O | 상세 소개 |
-| operation_status | VARCHAR(20) | O | ACTIVE / DORMANT / ARCHIVED |
+| operation_status | VARCHAR(20) | O | ACTIVE / ARCHIVED |
 | recruitment_planned | BOOLEAN | O | 모집 계획 여부, 기본값 false |
 | recruitment_start_date | DATE | 조건부 | 모집 계획이 있으면 필수 |
 | recruitment_end_date | DATE | X | 없으면 시작일부터 상시 모집 |
