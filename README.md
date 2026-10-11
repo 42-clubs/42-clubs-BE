@@ -12,15 +12,16 @@
 | Framework | Spring Boot 3.5.x | 확정 | 적용 완료 |
 | Build | Gradle Wrapper | 확정 | 적용 완료 |
 | Formatting | Spotless / Google Java Format (AOSP) | 채택 | 적용 완료 |
+| 반복 코드 생성 | Lombok | 채택 | 메인·테스트 annotation processor 설정, User·Club 및 서비스·Controller 적용 |
 | Web | Spring Web MVC | 확정 | 적용 완료 |
 | Security | Spring Security | 채택 | 인증·인가 설계 후 도입 |
-| ORM | Spring Data JPA / Hibernate | 채택 | ERD 설계 후 도입 |
-| Database | PostgreSQL | 채택, 세부 버전 미정 | 도입 예정 |
+| ORM | Spring Data JPA / Hibernate | 채택 | 적용 완료, User·Club 매핑 도입 |
+| Database | PostgreSQL 17.6 | 채택 | 로컬 Compose·테스트 컨테이너 구성 |
 | Validation | Jakarta Bean Validation | 확정 | Starter 적용 완료 |
 | API Documentation | springdoc-openapi 2.8.x / Swagger UI | 채택, 패치 버전 미정 | API 구현 시 도입 |
-| DB Migration | Flyway | 채택 | 첫 테이블 생성부터 도입 |
+| DB Migration | Flyway | 채택 | 적용 완료, users·clubs 마이그레이션 |
 | Test | JUnit 5 / Mockito | 확정 | Starter 적용 완료 |
-| 개발용 DB 환경 | Docker Compose로 PostgreSQL 실행 | 채택 | DB 도입 시 구성 |
+| 개발용 DB 환경 | Docker Compose로 PostgreSQL 실행 | 채택 | 적용 완료 |
 | 애플리케이션 컨테이너화 | Docker | 검토 중 | 배포 환경 결정 후 검토 |
 | 로그인 제공자 | 42 인증 후 최초 로그인 시 계정 생성, 일반 회원가입 없음 | 설계 기준 확정 | 실제 연동 가능 여부 확인 및 구현 필요 |
 | 로그인 상태 유지 | 서버 세션 우선 검토, 토큰 방식과 비교 | 미정 | 프론트엔드·백엔드 도메인 구성 확인 후 결정 |
@@ -35,14 +36,43 @@ springdoc-openapi는 [공식 호환표](https://springdoc.org/v2/)에 따라 Boo
 
 Java 17 JDK를 설치하고 IDE에서 이 폴더를 Gradle 프로젝트로 열어 주세요.
 Gradle JVM도 Java 17로 설정합니다. 최초 빌드에는 의존성 다운로드를 위한 인터넷 연결이 필요합니다.
+Lombok은 컴파일 시 getter·생성자 등의 코드를 생성하며 런타임 의존성으로 포함하지 않습니다.
+버전은 Spring Boot BOM으로 관리합니다. IDE에서 Lombok 생성 코드를 인식하지 못하면 Gradle 프로젝트를 새로고침하고
+annotation processing 설정 및 IDE의 Lombok 지원을 확인합니다.
 
 ```sh
-./gradlew build
+docker compose up -d --wait
 ./gradlew bootRun
 ```
 
+Docker Desktop 또는 Docker Engine과 Compose가 필요합니다. DB는 로컬 주소 `127.0.0.1:5432`에서만 접근할 수 있습니다.
+기본 로컬 DB 이름·사용자·비밀번호는 `clubs` / `clubs` / `clubs_local`이며 개발 환경 전용입니다.
+애플리케이션 시작 시 Flyway가 마이그레이션을 적용하고 Hibernate가 매핑을 검증합니다.
+DB 데이터는 Compose의 볼륨에 유지됩니다. `docker compose stop`으로 DB를 중지할 수 있습니다.
+
+환경 변수 항목은 [.env.example](.env.example)을 참고합니다.
+기본값을 사용하면 별도 환경 파일 없이 실행할 수 있습니다.
+Compose는 `.env`를 자동으로 읽지만 Spring Boot는 읽지 않으므로, 값을 변경하면 셸 또는 IDE 실행 설정에도
+`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`를 설정해야 합니다.
+포트를 변경하면 `POSTGRES_PORT`와 `DB_URL`의 포트를 함께 변경합니다.
+기존 볼륨의 DB 이름·사용자·비밀번호는 환경 변수 변경만으로 다시 초기화되지 않습니다.
+배포 환경에서는 DB 접속 값을 명시적으로 설정합니다.
+
+```sh
+./gradlew build
+```
+
+테스트는 Testcontainers가 별도 PostgreSQL 컨테이너를 생성하므로 Docker가 실행 중이어야 합니다.
+로컬 Compose DB를 먼저 실행할 필요는 없으며 개발 DB의 데이터를 사용하지 않습니다.
+Docker가 없으면 DB 통합 테스트가 실패합니다. 자동으로 생략하지 않습니다.
 Windows에서는 `gradlew.bat build`, `gradlew.bat bootRun`을 사용합니다.
-애플리케이션은 기본 포트 `8080`으로 실행됩니다. 아직 API가 없으므로 `/` 요청의 404 응답은 정상입니다.
+애플리케이션은 기본 포트 `8080`으로 실행됩니다. 동아리 공개 목록·상세 API를 제공합니다.
+요청·응답 계약은 [동아리 조회 명세](docs/api-endpoints.md#동아리-공개-조회--구현-계약)를 참고합니다.
+새 DB에는 초기 동아리 데이터가 없어 목록이 비어 있습니다. `/`에는 엔드포인트가 없어 404 응답이 정상입니다.
+
+```sh
+curl 'http://localhost:8080/api/v1/clubs?page=0&size=20'
+```
 
 ## 코드 포맷팅
 
@@ -68,7 +98,8 @@ IDE 자체 포맷터와 결과가 다를 경우 Spotless 설정을 기준으로 
 ## 아키텍처
 
 Modular Monolith + Package by Feature + Layered Architecture를 적용합니다.
-아래는 목표 구조이며, DB·인증·소모임 기능은 아직 구현 전입니다.
+아래는 목표 구조이며, DB 기반·User·Club 매핑과 동아리 공개 조회를 구현했습니다.
+인증·쓰기 API·활동·공지·소모임 기능은 아직 구현 전입니다.
 
 ```mermaid
 flowchart TB
@@ -93,10 +124,11 @@ flowchart TB
         Global[global: config / exception / security]
         Features -. 공통 기술 지원 .-> Global
     end
-    Repository --> DB[(PostgreSQL — 도입 예정)]
+    Repository --> DB[(PostgreSQL)]
 ```
 
 패키지별 책임·의존성 및 영속성·테스트 규칙은 [아키텍처 문서](docs/architecture.md)에서 관리합니다.
+호출 흐름 예시와 구현·리뷰 시 주의 사항은 [기능 모듈 구현 가이드](docs/module-development.md)를 참고합니다.
 
 ## ERD
 
@@ -129,7 +161,7 @@ erDiagram
 ## 도메인 및 API
 
 - [도메인 관계와 업무 규칙](docs/domain-model.md): 정책 결정과 미정 사항
-- [API 엔드포인트 초안](docs/api-endpoints.md): 메서드·경로·접근 권한, DTO 설계 전 단계
+- [API 엔드포인트 및 구현 계약](docs/api-endpoints.md): 동아리 공개 조회 계약 및 나머지 API 초안
 
 ## 문서 관리 (SSOT)
 
@@ -141,6 +173,7 @@ erDiagram
 | 아키텍처·ERD 다이어그램 | README |
 | 실제 의존성 버전·포맷 설정 | build.gradle, gradle/wrapper/gradle-wrapper.properties |
 | 패키지 책임, 계층·의존성, DB 운영·테스트 원칙 | docs/architecture.md |
+| 모듈 구현 흐름 예시, 규칙 적용 방법·리뷰 질문 | docs/module-development.md |
 | 업무 규칙·상태 전이·정책상 미정 사항 | docs/domain-model.md |
 | 물리 컬럼·타입·PK/FK·제약조건·인덱스 | docs/erd.md |
 | HTTP 메서드·경로·API 권한·계약 | docs/api-endpoints.md |
@@ -156,22 +189,28 @@ erDiagram
 
 1. 기본 프로젝트 및 기능별 패키지 구성 — 완료
 2. 도메인 모델링 및 ERD 설계 — MVP 10개 테이블 관계·핵심 키 확정, 소모임 후속 컬럼·정책은 문서에서 관리
-3. JPA, PostgreSQL, Flyway와 개발용 Docker Compose 도입
+3. JPA, PostgreSQL, Flyway와 개발용 Docker Compose 도입 — 완료, users·clubs 구현 및 기능별 마이그레이션 추가 예정
 4. 인증·인가 설계 및 Spring Security 적용
-5. API 설계 결과에 따른 패키지 조정, API 구현 및 springdoc-openapi 도입
+5. API 설계 결과에 따른 패키지 조정, API 구현 및 springdoc-openapi 도입 — 동아리 공개 조회부터 구현, 인증·쓰기 API·springdoc은 후속
 
 CI는 위 단계와 별개로 먼저 구성할 수 있습니다.
 
 ## 현재 구현 범위
 
-프로젝트 실행 설정, 패키지 골격, 애플리케이션 컨텍스트 로딩 테스트를 제공합니다.
-DB/JPA, 인증 제공자, Spring Security, 도메인 엔티티와 API는 아직 도입하지 않았습니다.
+프로젝트 실행 설정, 패키지 골격, PostgreSQL·JPA·Flyway 기반을 제공합니다.
+users·clubs 테이블과 User·Club 엔티티, 동아리 공개 목록·상세 조회를 구현했습니다.
+목록은 페이지네이션과 운영 상태 필터를 제공하며 상세에는 기본 정보와 모집 안내를 반환합니다.
+PostgreSQL 통합 테스트로 마이그레이션·매핑·저장/조회·DB 제약·페이지네이션·모집 날짜 경계·400/404 응답을 검증합니다.
+인증 제공자, Spring Security, 쓰기 API와 나머지 도메인 기능은 아직 도입하지 않았습니다.
+동아리 활동도는 활동 도메인과 집계 경계 구현 후 추가합니다.
 관리 API를 구현할 때는 인증과 동아리별 접근 권한 검증을 함께 적용해야 합니다.
 
 ## 브랜치 전략
 
 2인 개발에 맞춰 `main`·`develop`과 짧게 유지하는 작업 브랜치를 사용합니다.
-현재 작업은 기존 폴더의 `develop`에서 진행하며 worktree는 사용하지 않습니다.
+기능마다 최신 `develop`에서 새 작업 브랜치를 생성하고, 구현·검증 후 `develop` 대상 PR을 올립니다.
+기본적으로 기존 작업 폴더에서 브랜치를 전환하며 worktree는 필요할 때만 사용합니다.
+자동 개발 작업에도 같은 흐름을 적용하며 [AGENTS.md](AGENTS.md)에 협업 규칙을 기록합니다.
 
 | 브랜치 | 목적 | 분기 / 병합 대상 |
 | --- | --- | --- |

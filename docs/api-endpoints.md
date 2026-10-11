@@ -1,7 +1,8 @@
 # API 엔드포인트 초안
 
-도메인·ERD 기준의 메서드, 경로, 접근 권한 초안입니다. 아직 구현하거나 최종 합의한 명세는 아닙니다.
-요청·응답 DTO, 오류 코드와 상세 페이지네이션은 다음 단계에서 확정합니다.
+도메인·ERD 기준의 메서드, 경로, 접근 권한을 기록합니다.
+동아리 공개 목록·상세 조회는 구현했으며 아래 구현 계약을 따릅니다. 다른 API는 구현 전 초안입니다.
+다른 API의 요청·응답 DTO, 오류 코드와 상세 페이지네이션은 해당 기능 구현 시 확정합니다.
 인증의 로그인 시작·콜백·로그아웃 경로는 세션/토큰 및 42 연동 설계 후 확정하며 일반 회원가입 API는 없습니다.
 
 ## 공통 원칙
@@ -36,7 +37,7 @@
 | 메서드 | 경로 | 기능 | 권한 |
 | --- | --- | --- | --- |
 | GET | /clubs | 동아리 목록, operationStatus 필터 | 공개 |
-| GET | /clubs/{clubId} | 동아리 상세·활동도·모집 안내 | 공개 |
+| GET | /clubs/{clubId} | 동아리 기본 정보·모집 안내 구현, 활동도 후속 | 공개 |
 | POST | /clubs | 동아리 생성 | 운영진 |
 | PATCH | /clubs/{clubId} | 소개·기본 정보 수정 | 해당 동아리 관리자 |
 | PUT | /clubs/{clubId}/recruitment | 모집 정보 전체 설정·갱신 | 해당 동아리 관리자 |
@@ -48,6 +49,95 @@
 기본 목록에서는 아카이브를 제외하고 `operationStatus=ARCHIVED`로 아카이브를 조회합니다.
 동아리 물리 삭제 API는 없습니다. 상태 전이의 효과는 [도메인 정책](domain-model.md#게시-및-아카이브-정책--확정)을 따릅니다.
 운영진 역할만으로 소개·게시물 수정 권한을 부여하지 않습니다.
+
+### 동아리 공개 조회 — 구현 계약
+
+두 API는 로그인 없이 조회할 수 있으며 성공 시 200과 JSON을 반환합니다.
+활동도는 활동 도메인과 집계 경계 구현 후 추가하며 현재 응답에 포함하지 않습니다.
+생성·수정 API와 개발용 초기 데이터는 아직 없으므로 새 DB의 목록은 비어 있습니다.
+
+#### 목록 요청
+
+`GET /api/v1/clubs`
+
+| 매개변수 | 기본값 | 허용 범위 |
+| --- | --- | --- |
+| page | 0 | 0 이상의 정수, Java int 범위. 첫 페이지는 0 |
+| size | 20 | 1~100의 정수. 초과하면 자동 축소하지 않고 400 |
+| operationStatus | 생략 | ACTIVE / DORMANT / ARCHIVED, 대문자 값 |
+
+빈 매개변수는 page·size의 기본값 또는 필터 생략으로 처리합니다.
+정렬은 ID 오름차순으로 고정하며 사용자 지정 정렬은 지원하지 않습니다.
+필터는 페이지네이션 전에 적용하며 `totalElements`는 필터 적용 후 전체 개수입니다.
+데이터가 없거나 마지막 페이지를 넘으면 200과 빈 `content`를 반환합니다.
+
+```json
+{
+  "content": [
+    {
+      "id": 1,
+      "name": "코딩 동아리",
+      "summary": "함께 프로젝트를 만드는 동아리",
+      "operationStatus": "ACTIVE",
+      "recruitmentStatus": "NOT_RECRUITING"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1
+}
+```
+
+#### 상세 요청
+
+`GET /api/v1/clubs/{clubId}` — clubId는 1 이상의 Java long 범위 정수입니다.
+아카이브된 동아리도 ID로 조회할 수 있습니다.
+
+```json
+{
+  "id": 1,
+  "name": "코딩 동아리",
+  "summary": "함께 프로젝트를 만드는 동아리",
+  "description": "동아리 상세 소개",
+  "operationStatus": "ACTIVE",
+  "recruitment": {
+    "planned": false,
+    "status": "NOT_RECRUITING",
+    "startDate": null,
+    "endDate": null,
+    "closedEarly": false,
+    "applicationMethod": null,
+    "applicationUrl": null
+  },
+  "createdAt": "2026-10-11T00:00:00Z",
+  "updatedAt": "2026-10-11T00:00:00Z"
+}
+```
+
+날짜는 `YYYY-MM-DD`, 생성·수정 시각은 UTC ISO 8601 형식입니다.
+모집 상태의 응답 값은 `NOT_RECRUITING`(모집 안 함), `SCHEDULED`(모집 예정), `OPEN`(모집 중), `CLOSED`(마감)입니다.
+계산 정책과 날짜 기준은 [도메인 모집 정책](domain-model.md#모집-정보와-상태--확정)을 따릅니다.
+관리자·사용자 정보는 공개 응답에 포함하지 않습니다.
+
+#### 오류 응답
+
+| 조건 | HTTP | code |
+| --- | --- | --- |
+| 허용 범위를 벗어난 페이지·크기·ID, 숫자 변환 실패, 잘못된 운영 상태 | 400 | INVALID_REQUEST |
+| 유효한 ID이지만 해당 동아리가 없음 | 404 | RESOURCE_NOT_FOUND |
+
+400 응답의 message는 `요청 값의 형식 또는 범위를 확인해 주세요.`입니다.
+404 응답은 다음과 같습니다.
+
+```json
+{
+  "code": "RESOURCE_NOT_FOUND",
+  "message": "동아리를 찾을 수 없습니다."
+}
+```
+
+이번에 정한 오류 형식은 두 조회 API의 400·404 계약입니다. 인증·충돌 등 다른 오류 계약은 후속 구현에서 정합니다.
 
 ## 활동·공지와 활동 출결
 
@@ -128,4 +218,4 @@ FIXED_MEMBERS의 본인 회차 상태도 위 `GET .../participants/me`를 공통
 ## 다음 검토
 
 업무상 미정 정책은 [도메인 문서](domain-model.md#남은-결정-사항)에서만 관리합니다.
-API 후속 작업은 요청·응답 DTO, 필터·정렬·페이지네이션, 공통 오류 코드와 42 인증 경로 확정입니다.
+API 후속 작업은 미구현 API의 요청·응답 DTO, 필터·정렬·페이지네이션, 추가 오류 코드와 42 인증 경로 확정입니다.

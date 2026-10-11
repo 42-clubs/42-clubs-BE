@@ -10,6 +10,8 @@ MVP에서는 단일 Gradle 모듈로 시작합니다. 모듈 경계는 코드 �
 구조 다이어그램과 기술 선정 현황은 [README](../README.md#아키텍처)를 참고합니다.
 실제 라이브러리 버전은 [build.gradle](../build.gradle)과 [Wrapper 설정](../gradle/wrapper/gradle-wrapper.properties)이 기준입니다.
 
+호출 흐름 예시와 구현·리뷰 시 주의 사항은 [기능 모듈 구현 가이드](module-development.md)를 참고합니다.
+
 ## 기능 경계
 
 | 패키지 | 책임 |
@@ -41,6 +43,16 @@ Controller는 Repository를 직접 호출하지 않습니다. 엔티티를 API �
 서비스 인터페이스와 구현체는 필요성이 생겼을 때 분리합니다.
 JPA 도입 시 초기에는 도메인 모델과 영속성 모델을 별도로 나누지 않습니다.
 
+### Lombok 사용
+
+Lombok은 getter와 기본 생성자 등 반복 코드에 사용할 수 있습니다.
+메인·테스트 소스 모두 컴파일 전용 의존성과 annotation processor를 설정하며 버전은 Spring Boot BOM을 따릅니다.
+입력 검증이나 기본 역할 지정처럼 업무 규칙이 있는 생성자는 직접 작성합니다.
+JPA 엔티티의 기본 생성자는 `protected`로 유지하며 Lombok을 사용하면 `@NoArgsConstructor(access = AccessLevel.PROTECTED)`로 표현합니다.
+엔티티에 `@Data`, 클래스 전체 `@Setter`, 전체 필드 공개 생성자를 일괄 적용하지 않습니다.
+상태 변경은 의미 있는 메서드로 제공하고, `equals`·`hashCode`·`toString`은 식별자와 연관관계를 고려해 설계합니다.
+현재 User·Club의 getter와 protected 기본 생성자는 Lombok으로 생성하고, 입력 검증과 최초 상태를 지정하는 생성자는 직접 작성합니다.
+
 ## 기능 간 의존성
 
 - 다른 기능의 Repository에 직접 접근하지 않습니다.
@@ -67,10 +79,15 @@ club이 활동 등록 서비스를 다시 호출하는 구조는 피합니다.
 - 공유 환경에 적용된 마이그레이션은 수정하지 않고 새 버전 파일을 추가합니다.
 - PostgreSQL 연동 시 Flyway의 `flyway-database-postgresql` 모듈을 함께 사용합니다.
 - 개발 중에는 IDE에서 애플리케이션을 실행하고, Docker Compose로 로컬 PostgreSQL을 실행합니다.
+- 현재 `users`·`clubs` 테이블과 해당 엔티티 매핑을 구현했으며 다른 테이블은 기능별 마이그레이션으로 추가합니다.
+- 로컬 DB와 테스트 DB는 PostgreSQL 17.6을 사용합니다. 실행과 환경 변수 설정은 [README](../README.md#개발-환경-및-실행)를 따릅니다.
 
 ### 테스트 및 CI
 
 - JUnit 5와 Mockito는 `spring-boot-starter-test`가 제공하는 의존성을 사용합니다.
 - 도메인 규칙과 서비스 로직을 테스트하고, DB 제약조건·쿼리는 PostgreSQL 통합 테스트로 검증합니다.
+- DB 통합 테스트는 Testcontainers와 Spring Boot의 `@ServiceConnection`으로 별도 PostgreSQL을 사용합니다.
+  Docker가 실행 중이어야 하며 사용할 수 없으면 테스트를 생략하지 않고 실패합니다.
 - 우선 검증할 사례는 타 동아리 수정 거부, 활동·공지의 소속 동아리 권한, 모집 기간 유효성, 관리 권한 중복입니다.
+- 동아리 공개 조회는 MockMvc와 PostgreSQL을 연결해 필터·페이지네이션·모집 날짜 경계·400/404를 검증합니다.
 - CI 도입 시 PR마다 `./gradlew build`를 실행합니다. CD는 배포 환경을 결정한 뒤 구성합니다.
