@@ -80,6 +80,8 @@ curl 'http://localhost:8080/api/v1/clubs?page=0&size=20'
 
 `.env.example`의 인증 변수를 셸 또는 IDE에 설정하고 `AUTH_ENABLED=true`로 실행합니다. `FT_CLIENT_ID`·`FT_CLIENT_SECRET`은 동아리 서비스용 42 OAuth 앱의 값을 사용하며, 42 앱에 등록한 콜백과 `FT_REDIRECT_URI`가 같아야 합니다. 실제 자격증명이 없으면 기본값인 `AUTH_ENABLED=false`로 공개 조회를 실행할 수 있으며 로그인 시작은 제공하지 않습니다. 비밀값은 저장소에 커밋하지 않습니다.
 
+전체 환경변수의 용도·기본값·필수 조건과 프론트엔드 없이 로그인하는 절차는 [환경변수 문서](docs/environment-variables.md)를 따릅니다. 로컬 Redirection URI는 `http://localhost:8080/login/oauth2/code/42`이며, 로그인 성공을 바로 확인하려면 `AUTH_SUCCESS_URL=http://localhost:8080/api/v1/me`로 설정합니다.
+
 - 로그인 시작: 브라우저에서 `GET /oauth2/authorization/42`로 이동합니다.
 - 콜백: `GET /login/oauth2/code/42`에서 인증을 마친 뒤 `AUTH_SUCCESS_URL`로 이동합니다.
 - 내 정보: `GET /api/v1/me`에 세션 쿠키를 포함합니다.
@@ -197,6 +199,7 @@ erDiagram
 | 업무 규칙·상태 전이·정책상 미정 사항 | docs/domain-model.md |
 | 물리 컬럼·타입·PK/FK·제약조건·인덱스 | docs/erd.md |
 | HTTP 메서드·경로·API 권한·계약 | docs/api-endpoints.md |
+| 환경변수 용도·기본값·필수 조건·사용 대상·설정 예시 | docs/environment-variables.md, .env.example (실제 기본값은 application.yml·compose.yaml) |
 
 기능 변경은 **도메인 → ERD → API → 마이그레이션·코드·테스트** 순서로 진행합니다.
 스키마 영향이 없으면 ERD 검토 결과 변경 불필요로 판단하고 진행합니다.
@@ -210,8 +213,8 @@ erDiagram
 1. 기본 프로젝트 및 기능별 패키지 구성 — 완료
 2. 도메인 모델링 및 ERD 설계 — MVP 11개 테이블 관계·핵심 키 확정, 소모임 후속 컬럼·정책은 문서에서 관리
 3. JPA, PostgreSQL, Flyway와 개발용 Docker Compose 도입 — 완료, users·clubs 구현 및 기능별 마이그레이션 추가 예정
-4. 인증·인가 설계 및 Spring Security 적용
-5. API 설계 결과에 따른 패키지 조정, API 구현 및 springdoc-openapi 도입 — 동아리 공개 조회부터 구현, 인증·쓰기 API·springdoc은 후속
+4. 인증·인가 설계 및 Spring Security 적용 — 42경산 OAuth·서버 세션·CSRF·USER/ADMIN 검사 구현, 실제 42 연동 확인 필요
+5. API 설계 결과에 따른 패키지 조정, API 구현 및 springdoc-openapi 도입 — 동아리 공개 조회·인증·내 정보 구현, 동아리 쓰기 API·springdoc은 후속
 
 CI는 위 단계와 별개로 먼저 구성할 수 있습니다.
 
