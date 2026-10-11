@@ -13,7 +13,7 @@ CREATE TABLE clubs (
     created_at TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL,
     CONSTRAINT ck_clubs_operation_status
-        CHECK (operation_status IN ('ACTIVE', 'DORMANT', 'ARCHIVED')),
+        CHECK (operation_status IN ('ACTIVE', 'ARCHIVED')),
     CONSTRAINT ck_clubs_recruitment_required
         CHECK (NOT recruitment_planned OR
             (recruitment_start_date IS NOT NULL AND application_method IS NOT NULL)),

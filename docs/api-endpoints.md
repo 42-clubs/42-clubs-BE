@@ -41,7 +41,7 @@
 | POST | /clubs | 동아리 생성 | 운영진 |
 | PATCH | /clubs/{clubId} | 소개·기본 정보 수정 | ACTIVE인 해당 동아리 관리자 |
 | PUT | /clubs/{clubId}/recruitment | 모집 정보 전체 설정·갱신 | ACTIVE인 해당 동아리 관리자 |
-| PATCH | /clubs/{clubId}/operation-status | 운영·휴면·아카이브·재활성화 | 운영진 |
+| PATCH | /clubs/{clubId}/operation-status | 활성·아카이브 전환 | 운영진 |
 | GET | /clubs/{clubId}/managers | 관리자 목록 | 운영진 또는 해당 동아리 관리자 |
 | PUT | /clubs/{clubId}/managers/{userId} | 관리 권한 부여 | 운영진 |
 | DELETE | /clubs/{clubId}/managers/{userId} | 관리 권한 해제 | 운영진 |
@@ -65,7 +65,9 @@
 | --- | --- | --- |
 | page | 0 | 0 이상의 정수, Java int 범위. 첫 페이지는 0 |
 | size | 20 | 1~100의 정수. 초과하면 자동 축소하지 않고 400 |
-| operationStatus | 생략 | ACTIVE / DORMANT / ARCHIVED, 대문자 값 |
+| operationStatus | 생략 | ACTIVE / ARCHIVED, 대문자 값 |
+
+`operationStatus=DORMANT`는 지원하지 않으며 400 `INVALID_REQUEST`를 반환합니다.
 
 빈 매개변수는 page·size의 기본값 또는 필터 생략으로 처리합니다.
 정렬은 ID 오름차순으로 고정하며 사용자 지정 정렬은 지원하지 않습니다.
