@@ -24,19 +24,16 @@
 | 컬럼 | 타입 | 필수 | 제약 및 의미 |
 | --- | --- | --- | --- |
 | id | BIGINT | O | PK |
-| intra_id | BIGINT | 조건부 | UNIQUE, ACTIVE이면 필수, BLACKHOLED이면 NULL |
-| intra_login | VARCHAR(100) | 조건부 | ACTIVE이면 필수, BLACKHOLED이면 NULL. 계정 연결 기준으로 사용하지 않음 |
-| display_name | VARCHAR(100) | 조건부 | ACTIVE이면 필수, BLACKHOLED이면 NULL |
-| role | VARCHAR(20) | O | USER / ADMIN, 기본값 USER. BLACKHOLED이면 USER |
-| account_status | VARCHAR(20) | O | ACTIVE / BLACKHOLED, 기본값 ACTIVE |
+| intra_id | BIGINT | O | UNIQUE, 42 계정 연결 기준 |
+| intra_login | VARCHAR(100) | O | Intra 로그인명, 계정 연결 기준으로 사용하지 않음 |
+| display_name | VARCHAR(100) | O | 표시 이름 |
+| role | VARCHAR(20) | O | USER / ADMIN, 기본값 USER |
 | created_at | TIMESTAMPTZ | O | 계정 생성 시각 |
 | updated_at | TIMESTAMPTZ | O | 수정 시각 |
 
-- id는 블랙홀 처리 후에도 유지하므로 기존 사용자 FK와 연쇄 삭제 없음 원칙은 유지합니다.
-- CHECK로 계정 상태 허용값과 상태별 식별 정보 NULL 여부·BLACKHOLED의 USER 역할을 검증합니다. 화면 표시 Blackholed는 개인정보 필드에 저장하지 않고 account_status에서 결정합니다.
-- 현재 V1·User 엔티티에는 account_status가 없고 세 식별 정보가 NOT NULL입니다. 위 계정 상태·조건부 NULL 명세는 후속 인증·사용자 기능 구현 시 반영할 목표 설계이며 이번 정책 확정에서 마이그레이션이나 코드를 변경하지 않습니다.
+- MVP는 현재 V1·User 엔티티와 동일한 스키마를 사용합니다. account_status·BLACKHOLED 상태·식별 정보의 조건부 NULL 제약은 추가하지 않습니다.
+- 블랙홀 처리에 필요한 스키마는 [추후 확장](domain-model.md#추후-확장-기능--mvp-제외) 시 재설계합니다.
 
-동아리 탈퇴는 가입 관계만 변경하며 이 사용자 테이블의 이름·로그인명은 유지합니다. 블랙홀 처리 기준은 [이용 자격 정책](domain-model.md#사용자-이용-자격-및-정보-정리)을 따릅니다.
 계정 생성·권한 부여 정책은 [도메인 문서](domain-model.md#사용자-역할과-동아리-관리-권한)를 참조합니다.
 
 ## clubs
@@ -100,7 +97,7 @@
 - 아카이브 전환 시 ACTIVE 행의 status를 LEFT로, left_at·updated_at을 전환 시각으로 갱신합니다. 기존 LEFT 행과 approved_by·joined_at·created_at은 보존합니다. 동아리 상태 변경과 같은 트랜잭션에서 처리하며 [아카이브 정책](domain-model.md#게시-및-아카이브-정책--확정)을 따릅니다.
 - 가입 한도는 회원 status와 동아리 operation_status를 함께 조회해 계산하며 별도 집계 컬럼을 두지 않습니다. LEFT 행은 현재 가입 목록·한도에서 제외하며 DB에는 보존합니다. 집계 기준은 [가입 한도 정책](domain-model.md#동아리-가입-한도--확정)을 따릅니다.
 - approved_by의 ADMIN 권한은 가입 등록·재가입 유스케이스에서 검증합니다. FK만으로 승인 권한을 판단하지 않습니다.
-- 탈퇴 신청은 회원 상태와 구분하며 [승인 주체가 보류된 정책](domain-model.md#동아리-탈퇴-신청승인--승인-정책-보류)에 따라 신청 저장 구조는 후속 확정합니다. 현재 상태값에 신청·승인 대기 상태를 임의로 추가하지 않습니다.
+- 본인 탈퇴 신청·승인 및 개별 탈퇴 처리는 [추후 확장](domain-model.md#동아리-탈퇴-신청승인--추후-확장)이며 MVP에 신청 테이블·대기 상태를 추가하지 않습니다. LEFT와 left_at은 아카이브 일괄 처리에 사용합니다.
 - 현재 미구현이며 향후 해당 테이블 최초 마이그레이션에 포함합니다. 가입 수를 강제 제한하는 DB 제약은 도입하지 않습니다. 업무 기준은 [가입 관계 정책](domain-model.md#동아리-가입-관계--확정)을 따릅니다.
 
 ## activities
@@ -196,7 +193,7 @@
 | session_id | BIGINT | O | FK → gathering_sessions.id |
 | user_id | BIGINT | O | FK → users.id |
 | status | VARCHAR(20) | O | PENDING / CONFIRMED / REJECTED / CANCELLED |
-| attendance_status | VARCHAR(20) | O | UNCHECKED / PRESENT / LATE / ABSENT, 기본값 UNCHECKED |
+| attendance_status | VARCHAR(20) | O | UNCHECKED / PRESENT / ABSENT, 기본값 UNCHECKED |
 | attendance_checked_by | BIGINT | X | FK → users.id, 마지막 체크 주최자 |
 | attendance_checked_at | TIMESTAMPTZ | X | 마지막 체크 시각 |
 | created_at / updated_at | TIMESTAMPTZ | O | 최초 생성·마지막 수정 |
@@ -213,7 +210,7 @@
 | id | BIGINT | O | PK |
 | activity_id | BIGINT | O | FK → activities.id |
 | user_id | BIGINT | O | FK → users.id |
-| attendance_status | VARCHAR(20) | O | UNCHECKED / PRESENT / LATE / ABSENT, 기본값 UNCHECKED |
+| attendance_status | VARCHAR(20) | O | UNCHECKED / PRESENT / ABSENT, 기본값 UNCHECKED |
 | attendance_checked_by | BIGINT | X | FK → users.id, 마지막 출결 체크 사용자 |
 | attendance_checked_at | TIMESTAMPTZ | X | 마지막 출결 체크 시각 |
 | created_at | TIMESTAMPTZ | O | 참가자 등록 시각 |
@@ -252,6 +249,6 @@ PK에는 기본 인덱스가 존재합니다. 추가 인덱스는 API 조회 조
 
 11개 테이블과 관계·핵심 키를 MVP 기준으로 삼습니다. 모임 목적·반복 규칙·고정 멤버 모집·취소 등 후속 컬럼은 도메인 정책 확정 후 보완해야 하므로 아직 전체 스키마가 구현 가능한 최종본은 아닙니다.
 인증은 서버 세션으로 구현했으며 기존 users 스키마를 사용합니다. 실제 42 자격증명으로 연동 확인은 필요합니다. [로그인 정책](domain-model.md#로그인-및-인증--확정)과 [실행 안내](../README.md#42-로그인-실행)를 따릅니다.
-블랙홀에 따른 사용자 정보 정리, 기록 보존 기한·영구 파기 절차 등 남은 정책은
-[도메인 문서](domain-model.md)의 후속 항목으로 관리합니다.
+출결 상태는 [MVP 기본 구성](domain-model.md#출결--mvp-기본-구성)을 따릅니다. 지각·통계·변경 이력을 위한 컬럼이나 테이블은 추가하지 않습니다.
+블랙홀 처리는 [추후 확장](domain-model.md#추후-확장-기능--mvp-제외)이며 기록 보존 기간·영구 파기 절차는 [팀 합의 대기](domain-model.md#팀-합의-대기--보류)입니다.
 남은 정책의 기준은 [도메인 문서의 미정 사항](domain-model.md#남은-결정-사항)이며 작업 순서는 README를 따릅니다.
