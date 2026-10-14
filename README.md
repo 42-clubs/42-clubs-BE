@@ -93,6 +93,8 @@ curl 'http://localhost:8080/api/v1/clubs?page=0&size=20'
 최초 사용자는 USER로 등록됩니다. 최초 ADMIN 지정은 운영자가 DB에서 수행하며 일반 사용자가 역할을 바꾸는 API는 제공하지 않습니다. 세션은 서버 메모리에 보관하므로 재시작하면 다시 로그인해야 합니다. 다중 서버 운영이 필요해지면 공유 세션 저장소를 별도 도입합니다.
 블랙홀 판정·개인정보 제거·이용 차단은 MVP에서 제외하고 추후 확장으로 둡니다. 이번 로그인 구현은 기존 users 스키마를 사용하고 DB 마이그레이션을 추가하지 않습니다. API 계약은 [인증 명세](docs/api-endpoints.md#인증--구현-계약)를 따릅니다.
 
+로그인 구현 커밋·검증 범위·후속 확인 사항은 [구현 정리](docs/login-implementation.md)를 참고합니다.
+
 ## 코드 포맷팅
 
 [Spotless](https://github.com/diffplug/spotless/tree/main/plugin-gradle)를 통해 Java 소스와 테스트의 포맷을 통일합니다.
