@@ -32,7 +32,7 @@
 | AUTH_COOKIE_SECURE | false | 로컬 HTTP는 false, HTTPS 배포는 true. true이면 브라우저는 HTTP 요청에 세션 쿠키를 보내지 않습니다. |
 | AUTH_COOKIE_SAME_SITE | lax | lax / strict / none. 로컬은 lax. 서로 다른 사이트의 프론트엔드에 쿠키를 보내려면 none과 Secure=true를 함께 설정합니다. 브라우저의 타사 쿠키 제한도 확인해야 합니다. |
 
-인증 변수는 모두 Spring Boot에서 읽습니다. 경산 제한은 42 응답 이메일의 정확한 `42gyeongsan.kr` 도메인을 검사하며 환경변수로 완화하지 않습니다. API 권한과 응답 계약은 [인증 명세](api-endpoints.md#인증--구현-계약)를 따릅니다.
+인증 변수는 모두 Spring Boot에서 읽습니다. 경산 제한은 42 응답 이메일의 정확한 `student.42gyeongsan.kr` 도메인을 검사하며 환경변수로 완화하지 않습니다. API 권한과 응답 계약은 [인증 명세](api-endpoints.md#인증--구현-계약)를 따릅니다.
 
 ## 프론트엔드 없이 로컬 로그인 테스트
 

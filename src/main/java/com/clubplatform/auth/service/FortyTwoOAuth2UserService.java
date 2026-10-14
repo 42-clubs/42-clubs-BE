@@ -27,7 +27,9 @@ public class FortyTwoOAuth2UserService extends DefaultOAuth2UserService {
         int at = email.lastIndexOf('@');
         if (at <= 0
                 || email.indexOf('@') != at
-                || !email.substring(at + 1).toLowerCase(Locale.ROOT).equals("42gyeongsan.kr")) {
+                || !email.substring(at + 1)
+                        .toLowerCase(Locale.ROOT)
+                        .equals("student.42gyeongsan.kr")) {
             throw failure("campus_not_allowed");
         }
         try {

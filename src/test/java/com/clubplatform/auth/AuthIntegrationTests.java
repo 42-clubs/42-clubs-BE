@@ -65,7 +65,7 @@ class AuthIntegrationTests {
                         "displayname",
                         "Test User",
                         "email",
-                        "testlogin@42gyeongsan.kr");
+                        "testlogin@student.42gyeongsan.kr");
     }
 
     @AfterAll
@@ -114,7 +114,7 @@ class AuthIntegrationTests {
                         "displayname",
                         "New Name",
                         "email",
-                        "newlogin@42gyeongsan.kr");
+                        "newlogin@student.42gyeongsan.kr");
         mvc.perform(get("/api/v1/me").session(login()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(originalId))
@@ -128,9 +128,11 @@ class AuthIntegrationTests {
         for (String email :
                 List.of(
                         "user@42seoul.kr",
-                        "user@evil42gyeongsan.kr",
-                        "user@42gyeongsan.kr.evil",
-                        "a@b@42gyeongsan.kr")) {
+                        "user@42gyeongsan.kr",
+                        "user@evilstudent.42gyeongsan.kr",
+                        "user@sub.student.42gyeongsan.kr",
+                        "user@student.42gyeongsan.kr.evil",
+                        "a@b@student.42gyeongsan.kr")) {
             profile = Map.of("id", 4242, "login", "testlogin", "email", email);
             var start = startLogin();
             mvc.perform(
@@ -146,7 +148,14 @@ class AuthIntegrationTests {
 
     @Test
     void malformedProviderProfileFailsWithoutCreatingAccount() throws Exception {
-        profile = Map.of("id", "bad-id", "login", "testlogin", "email", "test@42gyeongsan.kr");
+        profile =
+                Map.of(
+                        "id",
+                        "bad-id",
+                        "login",
+                        "testlogin",
+                        "email",
+                        "test@student.42gyeongsan.kr");
         var start = startLogin();
         mvc.perform(
                         get("/login/oauth2/code/42")
@@ -159,7 +168,7 @@ class AuthIntegrationTests {
 
     @Test
     void acceptsExactCampusDomainIgnoringCaseAndFallsBackToLoginName() throws Exception {
-        profile = Map.of("id", 4242, "login", "testlogin", "email", "test@42GYEONGSAN.KR");
+        profile = Map.of("id", 4242, "login", "testlogin", "email", "test@STUDENT.42GYEONGSAN.KR");
         mvc.perform(get("/api/v1/me").session(login()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.displayName").value("testlogin"));
@@ -265,7 +274,7 @@ class AuthIntegrationTests {
                         "displayname",
                         "Test User",
                         "email",
-                        "testlogin@42gyeongsan.kr",
+                        "testlogin@student.42gyeongsan.kr",
                         "role",
                         "SUPER_ADMIN");
         var session = login();
