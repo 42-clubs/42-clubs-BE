@@ -18,10 +18,13 @@ import java.util.concurrent.CyclicBarrier;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
@@ -42,6 +45,7 @@ import org.springframework.web.util.UriComponentsBuilder;
             "app.auth.client-id=test-client",
             "app.auth.client-secret=test-secret"
         })
+@ExtendWith(OutputCaptureExtension.class)
 @AutoConfigureMockMvc
 @Import({PostgreSqlTestConfig.class, AuthIntegrationTests.ProviderConfig.class})
 class AuthIntegrationTests {
@@ -188,7 +192,8 @@ class AuthIntegrationTests {
     }
 
     @Test
-    void rejectsWrongOAuthStateAndMissingAuthorizationRequest() throws Exception {
+    void rejectsWrongOAuthStateAndMissingAuthorizationRequest(CapturedOutput output)
+            throws Exception {
         var start = startLogin();
         mvc.perform(
                         get("/login/oauth2/code/42")
@@ -201,6 +206,8 @@ class AuthIntegrationTests {
                                 .param("code", "test-code")
                                 .param("state", "unknown"))
                 .andExpect(status().isUnauthorized());
+        // 기본 세션 저장소는 state가 다른 요청도 일치하는 인가 요청 없음으로 처리한다.
+        assertThat(output.getOut()).contains("reason=authorization_request_not_found");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM users", Long.class)).isZero();
     }
 

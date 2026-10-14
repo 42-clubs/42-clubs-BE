@@ -56,7 +56,7 @@
 
 - 프론트엔드는 API 호출에 세션 쿠키를 포함하고 변경 요청에 `/api/v1/auth/csrf`의 `headerName`을 헤더 이름으로, `token`을 값으로 사용합니다. 로그인·로그아웃 시 CSRF 토큰이 초기화되므로 다시 조회해야 합니다.
 - 세션 쿠키는 HttpOnly이며 로컬은 SameSite=Lax, Secure=false입니다. 배포 설정은 환경 변수로 변경합니다. 로그인 상태는 서버 재시작 시 사라집니다.
-- 인증 없는 보호 API는 401 `UNAUTHENTICATED`, ADMIN 권한 부족과 CSRF 오류는 403 `ACCESS_DENIED`입니다. OAuth state·코드·42 프로필 오류 및 경산 도메인 불일치는 401 `OAUTH_LOGIN_FAILED`이며 외부 오류 세부 내용은 응답하지 않습니다.
+- 인증 없는 보호 API는 401 `UNAUTHENTICATED`, ADMIN 권한 부족과 CSRF 오류는 403 `ACCESS_DENIED`입니다. OAuth state·코드·42 프로필 오류 및 경산 도메인 불일치는 401 `OAUTH_LOGIN_FAILED`이며 외부 오류 세부 내용은 응답하지 않습니다. 서버 WARN 로그에는 안전하게 분류한 실패 사유와 확인 안내를 기록하며, [로그 확인 안내](environment-variables.md#로그인-실패-서버-로그)를 따릅니다.
 - `AUTH_ENABLED=false`이면 OAuth 시작·콜백 기능을 활성화하지 않습니다. 공개 동아리 조회·CSRF API는 유지하며 보호 API는 인증이 필요합니다.
 - `/me`의 role은 USER / ADMIN / SUPER_ADMIN입니다. 기존 세션에서도 매 요청 DB 역할을 반영합니다. SUPER_ADMIN은 ADMIN 운영 권한을 포함하고 동아리별 회장·주최자·부원 조건은 별도로 검사합니다. 현재 권한 관리 API는 미구현입니다.
 - `/me`에 이메일·42 API 토큰·42 전체 프로필은 포함하지 않습니다. 사용자 계정은 42 ID 기준으로 중복을 방지하고 역할은 DB 기준입니다.

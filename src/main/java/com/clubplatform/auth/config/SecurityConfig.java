@@ -1,6 +1,7 @@
 package com.clubplatform.auth.config;
 
 import com.clubplatform.auth.security.CurrentUserFilter;
+import com.clubplatform.auth.security.OAuthLoginFailureHandler;
 import com.clubplatform.auth.service.FortyTwoOAuth2UserService;
 import com.clubplatform.global.exception.ApiErrorResponse;
 import com.clubplatform.user.service.UserAccountService;
@@ -32,7 +33,8 @@ public class SecurityConfig {
             AuthProperties properties,
             FortyTwoOAuth2UserService oauthUsers,
             UserAccountService users,
-            ObjectMapper mapper)
+            ObjectMapper mapper,
+            OAuthLoginFailureHandler oauthFailureHandler)
             throws Exception {
         var cors = new CorsConfiguration();
         cors.setAllowedOrigins(properties.allowedOrigins());
@@ -96,14 +98,7 @@ public class SecurityConfig {
                                     .successHandler(
                                             (request, response, authentication) ->
                                                     response.sendRedirect(properties.successUrl()))
-                                    .failureHandler(
-                                            (request, response, exception) ->
-                                                    error(
-                                                            mapper,
-                                                            response,
-                                                            401,
-                                                            "OAUTH_LOGIN_FAILED",
-                                                            "42경산 계정으로 다시 로그인해 주세요.")));
+                                    .failureHandler(oauthFailureHandler));
         }
         return http.build();
     }

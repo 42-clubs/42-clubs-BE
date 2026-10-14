@@ -82,3 +82,28 @@ docker compose up -d --wait
 - `AUTH_ALLOWED_ORIGINS`에는 정확한 프론트엔드 origin을 설정합니다. HTTPS 배포에서는 `AUTH_COOKIE_SECURE=true`가 필요합니다.
 - 서로 다른 사이트에서 쿠키를 사용할 때는 SameSite=none과 Secure가 필요하며 브라우저의 타사 쿠키 제한도 확인합니다. 가능하면 같은 사이트에 배포합니다.
 - 세션은 서버 메모리에 있어 재시작 시 재로그인이 필요합니다. 다중 서버 운영이 필요하면 공유 세션 저장소를 별도 도입합니다.
+
+## 로그인 실패 서버 로그
+
+브라우저에는 공통 `OAUTH_LOGIN_FAILED` 응답을 반환합니다. `bootRun` 터미널의 WARN 로그는
+`42 OAuth login failed: reason=... hint=...` 형식으로 실패 분류와 확인할 설정을 표시합니다.
+
+| reason | 확인할 사항 |
+| --- | --- |
+| campus_not_allowed | 42 응답 이메일이 정확한 `student.42gyeongsan.kr` 도메인인지 |
+| invalid_42_profile | 이메일·ID·로그인명 등 필수 프로필의 누락·형식 오류 |
+| authorization_request_not_found | state에 일치하는 인가 요청 없음. 세션 누락·state 불일치·쿠키·호스트 변경·서버 재시작 |
+| invalid_state_parameter | OAuth state 불일치. 시작 주소에서 다시 로그인 |
+| invalid_client | 같은 앱에서 발급한 UID·Secret인지 |
+| invalid_grant | 인가 코드 만료·재사용, 콜백 URI 불일치 |
+| invalid_token_response | 토큰 교환 오류. 자격증명·콜백 URI·42 서버 연결 확인 |
+| invalid_user_info_response | 42 프로필 조회 오류. 42 서버 연결·응답 확인 |
+| access_denied | 사용자가 인가를 거부·취소하거나 제공자가 거부 |
+| invalid_request / invalid_scope | OAuth 요청 매개변수·허용 scope |
+| server_error / temporarily_unavailable | 42 인증 서버 오류·일시적 사용 불가 |
+| unknown_oauth_error | 알려진 코드로 분류되지 않은 인증 오류 |
+
+토큰 교환 예외에 더 구체적인 제공자 오류가 있으면 해당 코드를 사용합니다.
+각 hint는 확인할 후보이며 원인을 확정하는 메시지는 아닙니다. 제공자가 알려주지 않은 세부 원인은 구분할 수 없습니다.
+예외 메시지·스택 트레이스·제공자 응답 원문·요청 URL/매개변수·쿠키·이메일·프로필·Secret·토큰은 이 로그에 기록하지 않습니다.
+알 수 없는 외부 오류 코드도 원문 대신 `unknown_oauth_error`로 기록합니다.
