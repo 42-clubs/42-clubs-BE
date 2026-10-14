@@ -54,6 +54,7 @@ class AuthIntegrationTests {
 
     @BeforeEach
     void prepare() {
+        jdbc.update("DELETE FROM club_managers");
         jdbc.update("DELETE FROM users");
         profile =
                 Map.of(
@@ -254,6 +255,146 @@ class AuthIntegrationTests {
     }
 
     @Test
+    void oauthProfileCannotGrantSuperAdminToNewAccount() throws Exception {
+        profile =
+                Map.of(
+                        "id",
+                        4242,
+                        "login",
+                        "testlogin",
+                        "displayname",
+                        "Test User",
+                        "email",
+                        "testlogin@42gyeongsan.kr",
+                        "role",
+                        "SUPER_ADMIN");
+        var session = login();
+        mvc.perform(get("/api/v1/me").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("USER"));
+        mvc.perform(get("/api/v1/admin/test-operation").session(session))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void initialSuperAdminLoginPreservesAccountAndRoleAndRevocationAffectsSession()
+            throws Exception {
+        jdbc.update(
+                """
+                INSERT INTO users (intra_id, intra_login, display_name, role, created_at, updated_at)
+                VALUES (4242, 'before-login', 'Initial User', 'SUPER_ADMIN', now(), now())
+                """);
+        long initialId = jdbc.queryForObject("SELECT id FROM users", Long.class);
+        var createdAt =
+                jdbc.queryForObject("SELECT created_at FROM users", java.time.OffsetDateTime.class);
+        var session = login();
+        mvc.perform(get("/api/v1/me").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(initialId))
+                .andExpect(jsonPath("$.intraLogin").value("testlogin"))
+                .andExpect(jsonPath("$.role").value("SUPER_ADMIN"));
+        var context =
+                (org.springframework.security.core.context.SecurityContext)
+                        session.getAttribute("SPRING_SECURITY_CONTEXT");
+        assertThat(context.getAuthentication().getAuthorities())
+                .extracting(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .containsExactlyInAnyOrder("ROLE_ADMIN", "ROLE_SUPER_ADMIN");
+        mvc.perform(get("/api/v1/admin/test-operation").session(session))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/admin/test-operation").session(session))
+                .andExpect(status().isForbidden());
+        mvc.perform(
+                        post("/api/v1/admin/test-operation")
+                                .session(session)
+                                .with(
+                                        org.springframework.security.test.web.servlet.request
+                                                .SecurityMockMvcRequestPostProcessors.csrf()))
+                .andExpect(status().isOk());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM users", Long.class)).isEqualTo(1);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT created_at FROM users", java.time.OffsetDateTime.class))
+                .isEqualTo(createdAt);
+        jdbc.update("UPDATE users SET role='USER'");
+        mvc.perform(get("/api/v1/admin/test-operation").session(session))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/me").session(session)).andExpect(jsonPath("$.role").value("USER"));
+    }
+
+    @Test
+    void managerRevocationAffectsExistingSessionAndSuperAdminCannotBypassRelation()
+            throws Exception {
+        var session = login();
+        long userId = jdbc.queryForObject("SELECT id FROM users", Long.class);
+        long clubId =
+                jdbc.queryForObject(
+                        """
+                INSERT INTO clubs (name, summary, description, operation_status,
+                    recruitment_planned, recruitment_closed_early, created_at, updated_at)
+                VALUES ('Permission Test', 'Summary', 'Description', 'ACTIVE', false, false, now(), now())
+                RETURNING id
+                """,
+                        Long.class);
+        jdbc.update("UPDATE users SET role='SUPER_ADMIN'");
+        mvc.perform(
+                        post("/api/v1/test-clubs/{clubId}/write", clubId)
+                                .session(session)
+                                .with(
+                                        org.springframework.security.test.web.servlet.request
+                                                .SecurityMockMvcRequestPostProcessors.csrf()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+        jdbc.update(
+                "INSERT INTO club_managers (user_id, club_id, created_at) VALUES (?, ?, now())",
+                userId,
+                clubId);
+        mvc.perform(
+                        post("/api/v1/test-clubs/{clubId}/write", clubId)
+                                .session(session)
+                                .with(
+                                        org.springframework.security.test.web.servlet.request
+                                                .SecurityMockMvcRequestPostProcessors.csrf()))
+                .andExpect(status().isOk());
+        jdbc.update("DELETE FROM club_managers WHERE user_id=? AND club_id=?", userId, clubId);
+        mvc.perform(
+                        post("/api/v1/test-clubs/{clubId}/write", clubId)
+                                .session(session)
+                                .with(
+                                        org.springframework.security.test.web.servlet.request
+                                                .SecurityMockMvcRequestPostProcessors.csrf()))
+                .andExpect(status().isForbidden());
+        jdbc.update("DELETE FROM clubs WHERE id=?", clubId);
+    }
+
+    @org.springframework.web.bind.annotation.RestController
+    static class TestOperationController {
+        private final com.clubplatform.club.service.ClubPermissionService permissions;
+
+        TestOperationController(com.clubplatform.club.service.ClubPermissionService permissions) {
+            this.permissions = permissions;
+        }
+
+        @org.springframework.web.bind.annotation.PostMapping("/api/v1/test-clubs/{clubId}/write")
+        String writeClub(
+                @org.springframework.web.bind.annotation.PathVariable long clubId,
+                @org.springframework.security.core.annotation.AuthenticationPrincipal
+                        com.clubplatform.global.security.AuthenticatedUser actor) {
+            permissions.requireManager(actor.userId(), clubId);
+            return "ok";
+        }
+
+        @org.springframework.web.bind.annotation.GetMapping("/api/v1/admin/test-operation")
+        String read() {
+            return "ok";
+        }
+
+        @org.springframework.web.bind.annotation.PostMapping("/api/v1/admin/test-operation")
+        String write() {
+            return "ok";
+        }
+    }
+
+    @Test
     void missingUserInvalidatesExistingSession() throws Exception {
         var session = login();
         jdbc.update("DELETE FROM users");
@@ -377,6 +518,12 @@ class AuthIntegrationTests {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class ProviderConfig {
+        @Bean
+        TestOperationController testOperationController(
+                com.clubplatform.club.service.ClubPermissionService permissions) {
+            return new TestOperationController(permissions);
+        }
+
         @Bean
         @Primary
         ClientRegistrationRepository testProvider() {

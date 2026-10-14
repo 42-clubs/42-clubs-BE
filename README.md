@@ -53,8 +53,9 @@ Spotless는 Google Java Format AOSP 스타일을 적용하며 빌드 중에는 �
 | --- | --- |
 | 실행·DB 기반 | 완료: Java 17, Spring Boot, JPA, Flyway, PostgreSQL Compose, Spotless·Lombok |
 | 동아리 공개 조회 | 완료: 목록·상세, 페이지네이션·운영 상태 필터·모집 표시 |
-| 인증·내 정보 | 완료: 42경산 OAuth, 세션·CSRF·로그아웃·USER/ADMIN 검사; 실제 42 자격증명 연동 확인 필요 |
-| DB 스키마 | users(V1)·clubs(V2) 구현; 나머지는 설계 초안 |
+| 인증·내 정보 | 완료: 42경산 OAuth, 세션·CSRF·로그아웃·USER/ADMIN/SUPER_ADMIN 검사; 실제 42 자격증명 연동 확인 필요 |
+| DB 스키마 | users(V1, V3)·clubs(V2)·club_managers(V3) 구현; 나머지는 설계 초안 |
+| 역할·회장 권한 기반 | 완료: SUPER_ADMIN의 ADMIN 운영 권한 포함, ACTIVE 동아리별 회장 관계 검사, [초기 DB 입력 절차](docs/initial-data-setup.md); 권한 관리 API는 다음 단계 |
 | 활동·공지·소모임 | 미구현: [현재 MVP 범위](docs/domain-model.md#축소-mvp--2026-10-14-확정)에 따라 작성·조회·소모임 회차 추가·선착순 참가·기본 출결 구현 예정 |
 | Swagger/OpenAPI | 미도입: Boot 3.5 호환 springdoc 2.8.x의 패치 버전 결정 필요 |
 | CI·배포 | GitHub Actions CI 미도입; 배포 대상·애플리케이션 컨테이너화·CD 미정 |
@@ -69,6 +70,7 @@ Spotless는 Google Java Format AOSP 스타일을 적용하며 빌드 중에는 �
 | 현재 MVP 범위·권한·참가 정책·보류 사항 | [도메인](docs/domain-model.md) |
 | 구현된 API와 새 API 초안 | [API 명세](docs/api-endpoints.md) |
 | 기능별 엔드포인트 구현 순서·DB 작업·완료 조건 | [MVP 구현 계획](docs/mvp-implementation-plan.md) |
+| 초기 동아리·회장·최고 관리자 DB 입력 | [초기 데이터 절차](docs/initial-data-setup.md) |
 | 실제 DB·관계도·미구현 스키마 | [ERD](docs/erd.md) |
 | 패키지·계층·의존성·DB 운영 규칙 | [아키텍처](docs/architecture.md) |
 | 실제 코드 흐름과 구현 시 확인 사항 | [모듈 가이드](docs/module-development.md) |

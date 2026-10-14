@@ -1,16 +1,16 @@
 # 데이터 모델과 ERD
 
-실제 DB에는 `users`([V1](../src/main/resources/db/migration/V1__create_users.sql))와 `clubs`([V2](../src/main/resources/db/migration/V2__create_clubs.sql))만 있습니다.
+실제 DB에는 `users`([V1](../src/main/resources/db/migration/V1__create_users.sql))와 `clubs`([V2](../src/main/resources/db/migration/V2__create_clubs.sql)), `club_managers`([V3](../src/main/resources/db/migration/V3__add_super_admin_and_club_managers.sql))가 있습니다. V3는 users.role CHECK에도 SUPER_ADMIN을 추가합니다.
 아래 나머지 테이블은 [현재 MVP](domain-model.md#축소-mvp--2026-10-14-확정)를 위한 미구현 설계 초안입니다. 부원·기본 출결은 아래 MVP 설계에 포함하고 참가 승인제·고정 멤버는 [후속 스키마](future-design.md#후속-스키마)에 분리합니다.
 
 - [관계도](#관계도) · [공통 규칙](#공통-규칙)
-- 구현됨: [users](#users) · [clubs](#clubs)
-- 설계: [관리 권한](#club_managers) · [부원](#club_members) · [활동](#activities) · [공지](#notices) · [소모임](#gatherings) · [회차](#gathering_sessions) · [회차 참가](#gathering_session_participants) · [활동 참가](#activity_participants) · [사진](#activity_images)
+- 구현됨: [users](#users) · [clubs](#clubs) · [관리 권한](#club_managers)
+- 설계: [부원](#club_members) · [활동](#activities) · [공지](#notices) · [소모임](#gatherings) · [회차](#gathering_sessions) · [회차 참가](#gathering_session_participants) · [활동 참가](#activity_participants) · [사진](#activity_images)
 - [인덱스](#초기-인덱스) · [남은 설계](#구현-전-확정할-사항)
 
 ## 관계도
 
-users·clubs 이외의 관계는 구현 예정입니다. 아래 도식에는 부원·기본 출결을 포함하며 고정 멤버 관계는 후속 설계입니다.
+users·clubs·club_managers 이외의 관계는 구현 예정입니다. 아래 도식에는 부원·기본 출결을 포함하며 고정 멤버 관계는 후속 설계입니다.
 
 ```mermaid
 erDiagram
@@ -50,12 +50,12 @@ erDiagram
 | intra_id | BIGINT | O | UNIQUE, 42 계정 연결 기준 |
 | intra_login | VARCHAR(100) | O | Intra 로그인명, 계정 연결 기준으로 사용하지 않음 |
 | display_name | VARCHAR(100) | O | 표시 이름 |
-| role | VARCHAR(20) | O | USER / ADMIN, 기본값 USER |
+| role | VARCHAR(20) | O | USER / ADMIN / SUPER_ADMIN, 기본값 USER |
 | created_at | TIMESTAMPTZ | O | 계정 생성 시각 |
 | updated_at | TIMESTAMPTZ | O | 수정 시각 |
 
-- 위 표는 현재 V1·User 엔티티의 구현 상태입니다. MVP 권한 관리 구현 시 role에 SUPER_ADMIN을 추가하는 새 마이그레이션과 enum 변경이 필요합니다. 기존 V1은 수정하지 않습니다. account_status·BLACKHOLED 상태·식별 정보의 조건부 NULL 제약은 추가하지 않습니다.
-- 현재 내부 id와 UNIQUE intra_id를 분리합니다. 42 숫자 ID를 PK로 직접 사용하는 방안은 논의 중이며 아직 스키마 변경을 확정하지 않았습니다.
+- 위 표는 V1·V3·User 엔티티의 구현 상태입니다. V3가 role CHECK에 SUPER_ADMIN을 추가하며 기존 V1은 유지합니다. account_status·BLACKHOLED 상태·식별 정보의 조건부 NULL 제약은 추가하지 않습니다.
+- 현재 내부 id와 UNIQUE intra_id를 분리합니다. 숫자 intra_id는 UNIQUE 계정 연결 키, intra_login은 표시·검색 값으로 유지합니다. 로그인명을 PK로 바꾸지 않습니다.
 
 계정 생성·권한 부여 정책은 [도메인 문서](domain-model.md#사용자-역할과-동아리-관리-권한)를 참조합니다.
 
@@ -88,6 +88,8 @@ erDiagram
 활동도·표시용 모집 상태는 파생 값이며 저장 컬럼을 두지 않습니다. 활동도의 날짜 경계와 수정 반영은 [집계 정책](future-design.md#활동도-계산)을 따릅니다. 별도 아카이브 테이블이나 archived_at 컬럼은 없습니다.
 
 ## club_managers
+
+V3로 구현되었습니다. 동아리별 조회용 INDEX(club_id)도 적용했습니다. 초기 입력은 [운영 절차](initial-data-setup.md)를 따릅니다.
 
 | 컬럼 | 타입 | 필수 | 제약 및 의미 |
 | --- | --- | --- | --- |

@@ -23,7 +23,7 @@
 | 3 | 동아리 활동 + 기본 출결 | 8 | 활동 작성·목록·상세 → 본인 참가·취소·상태 조회 → 주최자 명단·출결 처리 |
 | 4 | 소모임 + 회차 + 기본 출결 | 11 | 글과 첫 회차 생성 → 상세와 회차 목록 → 회차별 참가·출결 → 같은 모임에 다음 회차 생성 |
 
-초기 동아리·회장·최고 관리자는 전달받은 정보로 DB에 입력합니다. 이후 권한 관리는 아래 최고 관리자 API를 사용합니다. 동아리 생성 API는 MVP에 추가하지 않습니다. 쓰기 API에 앞서 SUPER_ADMIN 역할과 ClubManager·ClubMember 관계 및 권한 검사를 구현합니다.
+초기 동아리·회장·최고 관리자는 전달받은 정보로 [초기 DB 입력 절차](initial-data-setup.md)에 따라 입력합니다. 이후 권한 관리는 아래 최고 관리자 API를 사용합니다. 동아리 생성 API는 MVP에 추가하지 않습니다. 0단계에서 SUPER_ADMIN 역할과 ClubManager 관계·작성 권한 검사를 구현했습니다. ClubMember는 2단계에서 구현합니다.
 
 동아리 활동은 해당 회장이 작성하며 작성자가 주최자입니다. 주최자 선택 UI·후보 검색 API·organizerId 요청 필드는 필요하지 않습니다.
 
@@ -58,6 +58,7 @@
 - 세션 쿠키는 HttpOnly이며 로컬은 SameSite=Lax, Secure=false입니다. 배포 설정은 환경 변수로 변경합니다. 로그인 상태는 서버 재시작 시 사라집니다.
 - 인증 없는 보호 API는 401 `UNAUTHENTICATED`, ADMIN 권한 부족과 CSRF 오류는 403 `ACCESS_DENIED`입니다. OAuth state·코드·42 프로필 오류 및 경산 도메인 불일치는 401 `OAUTH_LOGIN_FAILED`이며 외부 오류 세부 내용은 응답하지 않습니다.
 - `AUTH_ENABLED=false`이면 OAuth 시작·콜백 기능을 활성화하지 않습니다. 공개 동아리 조회·CSRF API는 유지하며 보호 API는 인증이 필요합니다.
+- `/me`의 role은 USER / ADMIN / SUPER_ADMIN입니다. 기존 세션에서도 매 요청 DB 역할을 반영합니다. SUPER_ADMIN은 ADMIN 운영 권한을 포함하고 동아리별 회장·주최자·부원 조건은 별도로 검사합니다. 현재 권한 관리 API는 미구현입니다.
 - `/me`에 이메일·42 API 토큰·42 전체 프로필은 포함하지 않습니다. 사용자 계정은 42 ID 기준으로 중복을 방지하고 역할은 DB 기준입니다.
 - JWT 재발급·다른 소셜 계정 연동·사이트 계정 탈퇴는 제공하지 않습니다. 블랙홀 확인과 기존 세션 이용 차단은 MVP에서 제외하며 추후 확장 시 검토합니다.
 
@@ -158,7 +159,7 @@ operationStatus 생략 시 ACTIVE만 조회합니다. 빈 매개변수는 page·
 
 ### 최고 관리자 권한 관리
 
-아래는 신규 MVP 설계이며 아직 구현되지 않았습니다. SUPER_ADMIN은 기존 ADMIN API도 이용할 수 있도록 구현합니다. `/admin/users` 검색은 기존 부원 등록용 API를 재사용하고 응답에 현재 역할을 추가할 예정입니다. 권한 관리 대상은 서비스에 등록된 사용자입니다. SUPER_ADMIN도 활동 작성에는 회장 관계, 출결 처리에는 주최자 관계, 부원 명단 조회에는 ACTIVE 부원 관계가 필요합니다.
+아래는 신규 MVP 설계이며 아직 구현되지 않았습니다. SUPER_ADMIN이 ADMIN 운영 권한을 포함하는 보안 기반은 구현되었습니다. `/admin/users` 검색은 기존 부원 등록용 API를 재사용하고 응답에 현재 역할을 추가할 예정입니다. 권한 관리 대상은 서비스에 등록된 사용자입니다. SUPER_ADMIN도 활동 작성에는 회장 관계, 출결 처리에는 주최자 관계, 부원 명단 조회에는 ACTIVE 부원 관계가 필요합니다.
 
 | 메서드 | 경로 | 기능 | 권한 |
 | --- | --- | --- | --- |
@@ -185,7 +186,7 @@ operationStatus 생략 시 ACTIVE만 조회합니다. 빈 매개변수는 page·
 | GET | /notices/{noticeId} | 공지 상세 | 공개 |
 | POST | /clubs/{clubId}/notices | 공지 작성 | ACTIVE인 해당 동아리 ClubManager |
 
-USER/ADMIN 모두 ClubManager 관계로 작성 권한을 검사합니다. ADMIN 역할만으로 공지를 작성할 수 없습니다.
+USER/ADMIN/SUPER_ADMIN 모두 ClubManager 관계로 작성 권한을 검사합니다. ADMIN/SUPER_ADMIN 역할만으로 공지를 작성할 수 없습니다.
 활동 사진 업로드 경로와 DTO는 미정입니다. 주최자의 타 사용자 수동 참가 등록은 핵심 MVP에서 사용하지 않습니다.
 
 ### 소모임

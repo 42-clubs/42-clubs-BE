@@ -17,6 +17,11 @@ public record AuthenticatedUser(long userId, String role) implements OAuth2User,
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
+        if ("SUPER_ADMIN".equals(role)) {
+            return List.of(
+                    new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"),
+                    new SimpleGrantedAuthority("ROLE_ADMIN"));
+        }
         return List.of(new SimpleGrantedAuthority("ROLE_" + role));
     }
 

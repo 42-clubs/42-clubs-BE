@@ -61,6 +61,10 @@ GET /api/v1/me
 
 OAuth 인가 요청은 Spring Security의 기본 서버 세션 저장소를 사용합니다. 설정 근거는 [공식 OAuth 인가 요청 저장소 문서](https://docs.spring.io/spring-security/reference/servlet/oauth2/client/authorization-grants.html)를 참고합니다.
 
+## 실제 구현: 동아리 회장 권한 검사
+
+`ClubPermissionService.requireManager(actorId, clubId)`는 현재 DB에서 대상 동아리 존재(없으면 404), ACTIVE 상태와 해당 사용자의 ClubManager 관계(없거나 ARCHIVED면 403)를 확인합니다. USER/ADMIN/SUPER_ADMIN 모두 같은 관계 조건을 적용하고 제거된 회장 관계는 다음 요청부터 반영합니다. 다른 기능은 이 서비스를 호출하며 club Repository를 직접 참조하지 않습니다. 부원·주최자 권한 검사는 각 기능 구현 단계에서 추가합니다.
+
 ## 예시: 동아리 활동 등록
 
 ```text
@@ -68,8 +72,6 @@ ActivityController.create(request, 로그인 사용자)
   → ActivityService.create(actorId, clubId, command) [트랜잭션 시작]
       → ClubPermissionService.requireManager(actorId, clubId)
           → club 내부 Repository로 관리 권한 확인
-      → UserQueryService.requireExistingUser(organizerId)
-          → user 내부 Repository로 지정 주최자 확인
       → Activity 생성: 최초 작성자·주최자·소속 동아리와 입력 값 설정
       → ActivityRepository.save(activity)
       → 응답에 필요한 결과 구성
