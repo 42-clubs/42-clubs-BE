@@ -133,7 +133,7 @@ operationStatus 생략 시 ACTIVE만 조회합니다. 빈 매개변수는 page·
 
 ## MVP API — 미구현
 
-아래 경로는 `/api/v1` 접두사를 생략했습니다. 글 생성·조회와 본인 선착순 참가·취소를 우선하며, 수정·운영·회원·출결 API는 [후속 API](future-design.md#후속-api-초안)에서 별도 관리합니다.
+아래 경로는 `/api/v1` 접두사를 생략했습니다. 글 생성·조회와 본인 선착순 참가·취소를 우선하며, 글 수정·일정 변경과 나머지 운영 API는 [후속 API](future-design.md#후속-api-초안)에서 별도 관리합니다.
 
 ### 동아리 활동·공지
 
@@ -143,7 +143,7 @@ operationStatus 생략 시 ACTIVE만 조회합니다. 빈 매개변수는 page·
 | GET | /activities/{activityId} | 활동 상세 | 공개 |
 | POST | /clubs/{clubId}/activities | 활동 작성·주최자 지정 | ACTIVE인 해당 동아리 ClubManager |
 | POST | /activities/{activityId}/participants | 본인 선착순 참가·재참가 | 로그인 본인 |
-| GET | /activities/{activityId}/participants/me | 본인 참가 상태 | 로그인 본인 |
+| GET | /activities/{activityId}/participants/me | 본인 참가·출결 상태 | 로그인 본인 |
 | DELETE | /activities/{activityId}/participants/me | 본인 참가 취소 | 로그인 본인, 주최자 예외 유지 |
 | GET | /clubs/{clubId}/notices | 공지 목록 | 공개 |
 | GET | /notices/{noticeId} | 공지 상세 | 공개 |
@@ -158,21 +158,50 @@ USER/ADMIN 모두 ClubManager 관계로 작성 권한을 검사합니다. ADMIN 
 | --- | --- | --- | --- |
 | GET | /gatherings | 소모임 목록 | 공개 |
 | GET | /gatherings/{gatheringId} | 소모임 상세 | 공개 |
-| POST | /gatherings | 모집 글 작성, FIRST_COME 고정 | 로그인 |
+| POST | /gatherings | 모집 글·첫 회차·주최자 참가 함께 생성, FIRST_COME 고정 | 로그인 |
 | GET | /gatherings/{gatheringId}/sessions | 실제 회차 목록 | 공개 |
 | GET | /gathering-sessions/{sessionId} | 회차 상세·모집 상태·잔여 정원 | 공개 |
 | POST | /gathering-sessions/{sessionId}/participants | 본인 선착순 참가·재참가 | 로그인 본인 |
-| GET | /gathering-sessions/{sessionId}/participants/me | 본인 참가 상태 | 로그인 본인 |
+| GET | /gathering-sessions/{sessionId}/participants/me | 본인 참가·출결 상태 | 로그인 본인 |
 | DELETE | /gathering-sessions/{sessionId}/participants/me | 본인 참가 취소 | 로그인 본인, 주최자 제외 |
 
-일회성도 회차를 사용하는 기존 경로 초안입니다. 모집 글과 첫 회차의 생성 요청을 묶는 방식은 구현 전 확정합니다.
+POST /gatherings는 첫 회차의 개최·종료·모집 마감 일시·장소·정원을 함께 받아 글·회차·주최자 참가를 원자적으로 생성합니다. 실패하면 모두 롤백합니다.
 기본 이미지·개최일·모집 종료일·정원과 현재 인원을 표시하며 반복·고정 멤버·승인 API는 현재 범위에 포함하지 않습니다.
+
+### 동아리 부원 관리
+
+| 메서드 | 경로 | 기능 | 권한 |
+| --- | --- | --- | --- |
+| GET | /admin/users?intraLogin=... | 부원 등록 대상 사용자 검색 | ADMIN |
+| GET | /admin/users/{userId}/clubs | 현재 가입 동아리·한도 집계 조회 | ADMIN |
+| PUT | /admin/clubs/{clubId}/members/{userId} | 기존 부원 직접 등록·재등록 | ADMIN, 대상 동아리 ACTIVE |
+| GET | /clubs/{clubId}/members | 현재 ACTIVE 부원 명단 | 해당 동아리 ACTIVE 부원 |
+
+별도 본인 가입 신청·승인 대기 API는 만들지 않습니다. 명단 접근은 [회원 정책](domain-model.md#동아리-회원-명단-조회--확정)을 유지합니다. ADMIN·ClubManager만으로 전체 부원 명단을 열람할 수는 없습니다. 사용자 검색 결과는 내부 ID·Intra 로그인명·표시 이름으로 제한합니다.
+
+### 기본 출결
+
+| 메서드 | 경로 | 기능 | 권한 |
+| --- | --- | --- | --- |
+| GET | /activities/{activityId}/participants | 참가자·출결 명단 | 해당 활동 주최자 |
+| PATCH | /activities/{activityId}/participants/{userId}/attendance | UNCHECKED / PRESENT 기록 | 해당 활동 주최자 |
+| GET | /gathering-sessions/{sessionId}/participants | 회차 참가자·출결 명단 | 해당 소모임 주최자 |
+| PATCH | /gathering-sessions/{sessionId}/participants/{userId}/attendance | UNCHECKED / PRESENT 기록 | 해당 소모임 주최자 |
+
+체크 사용자·시각은 서버에서 기록합니다. 미확인으로 되돌리면 비우며 본인 출결은 각 participants/me 응답에 포함합니다. 결석·지각 값은 허용하지 않습니다. 글 수정 제외 정책은 출결 기록 API에는 적용하지 않습니다.
+
+### 일정·참가·목록 계약
+
+- 활동과 소모임 첫 회차는 startsAt·recruitmentClosesAt에 오프셋을 포함한 ISO 8601 날짜·시각을 필수로 받습니다. 표시·D-Day의 날짜 기준은 Asia/Seoul이며 모집 마감은 개최보다 이전이어야 합니다.
+- 참가·재참가·취소는 [시각 조건](domain-model.md#일정과-표시)을 검사합니다. 정확히 마감 시각이거나 마감 이후인 참가·취소는 409로 처리합니다.
+- 활동·소모임 목록은 모집 중 우선 → 개최 시각 오름차순 → ID 오름차순으로 정렬합니다. 마감·종료 항목도 뒤쪽에 포함하며 검색 API는 후속입니다. 정렬은 페이지네이션 전에 적용합니다.
+- 글·일정 수정 API는 MVP에 제공하지 않습니다. 기존 동아리 조회와 그 정렬·응답 계약은 유지합니다.
 
 ## 구현 전 확정할 계약
 
-- 활동·소모임 목록/상세: D-Day, capacity, currentParticipantCount, 잔여 정원, 모집 종료일의 DTO 이름·날짜/시각 형식
+- 활동·소모임 목록/상세: D-Day·잔여 정원 등 나머지 DTO 이름과 상세 응답 구성
 - 사진 업로드 경로·요청/응답, 기본 이미지 제공 방식
-- 목록 필터·정렬·페이지네이션, 생성 응답과 참가·취소 응답
+- 목록 필터·페이지네이션, 생성 응답과 참가·취소·부원 등록 응답
 - 마감·정원·중복·동시 참가 충돌의 세부 오류 코드; 기본 HTTP 상태는 409
 - 참가자 명단은 공개 응답에서 제외하고 본인 상태와 관리 조회를 구분
 

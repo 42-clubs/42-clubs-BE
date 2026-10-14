@@ -1,21 +1,23 @@
 # 데이터 모델과 ERD
 
 실제 DB에는 `users`([V1](../src/main/resources/db/migration/V1__create_users.sql))와 `clubs`([V2](../src/main/resources/db/migration/V2__create_clubs.sql))만 있습니다.
-아래 나머지 테이블은 [현재 MVP](domain-model.md#축소-mvp--2026-10-14-확정)를 위한 미구현 설계 초안입니다. 회원 관리·승인제·출결 필드는 [후속 스키마](future-design.md#후속-스키마)에 분리합니다.
+아래 나머지 테이블은 [현재 MVP](domain-model.md#축소-mvp--2026-10-14-확정)를 위한 미구현 설계 초안입니다. 부원·기본 출결은 아래 MVP 설계에 포함하고 참가 승인제·고정 멤버는 [후속 스키마](future-design.md#후속-스키마)에 분리합니다.
 
 - [관계도](#관계도) · [공통 규칙](#공통-규칙)
 - 구현됨: [users](#users) · [clubs](#clubs)
-- 설계: [관리 권한](#club_managers) · [활동](#activities) · [공지](#notices) · [소모임](#gatherings) · [회차](#gathering_sessions) · [회차 참가](#gathering_session_participants) · [활동 참가](#activity_participants) · [사진](#activity_images)
+- 설계: [관리 권한](#club_managers) · [부원](#club_members) · [활동](#activities) · [공지](#notices) · [소모임](#gatherings) · [회차](#gathering_sessions) · [회차 참가](#gathering_session_participants) · [활동 참가](#activity_participants) · [사진](#activity_images)
 - [인덱스](#초기-인덱스) · [남은 설계](#구현-전-확정할-사항)
 
 ## 관계도
 
-users·clubs 이외의 관계는 구현 예정입니다. 아래 도식은 후속 회원·고정 멤버·출결 관계를 제외한 설계입니다.
+users·clubs 이외의 관계는 구현 예정입니다. 아래 도식에는 부원·기본 출결을 포함하며 고정 멤버 관계는 후속 설계입니다.
 
 ```mermaid
 erDiagram
     users ||--o{ club_managers : user_id
     clubs ||--o{ club_managers : club_id
+    users ||--o{ club_members : "user_id / approved_by"
+    clubs ||--o{ club_members : club_id
     clubs ||--o{ activities : club_id
     clubs ||--o{ notices : club_id
     users ||--o{ activities : "author_id / organizer_id"
@@ -27,12 +29,14 @@ erDiagram
     gatherings ||--o{ gathering_sessions : gathering_id
     gathering_sessions ||--|{ gathering_session_participants : session_id
     users ||--o{ gathering_session_participants : user_id
+    users |o--o{ activity_participants : attendance_checked_by
+    users |o--o{ gathering_session_participants : attendance_checked_by
 ```
 
 ## 공통 규칙
 
 - PK는 자동 생성 BIGINT, 필수 FK는 NOT NULL이며 users 등 내부 PK를 참조합니다. 표의 필수 O는 NOT NULL입니다.
-- 생성·수정 시각은 TIMESTAMPTZ, 현재 활동일·동아리 모집 날짜는 DATE입니다. 활동 개최 시각의 최종 표현은 미정입니다.
+- 생성·수정·개최·활동 및 소모임 모집 마감은 TIMESTAMPTZ입니다. 기존 Club 입부 모집 날짜는 DATE로 유지합니다.
 - 역할·상태는 VARCHAR와 CHECK로 허용값을 제한합니다. 문자열 공백 등 입력 검증은 별도로 적용합니다.
 - FK에 연쇄 삭제를 설정하지 않습니다. updated_at은 애플리케이션에서 갱신합니다.
 - 활동·공지·소모임의 deleted_at은 NULL이면 미삭제이며 일반 조회에 IS NULL 조건을 적용합니다. 삭제 실행 API는 후속입니다.
@@ -95,6 +99,29 @@ erDiagram
 - 동아리별 관리자는 0명 이상이며, 사용자도 여러 동아리를 관리할 수 있습니다.
 - 별도 관리자 등급이나 동아리 회원 관계를 표현하지 않습니다. 회장도 이 관리 관계로 표현하며 별도 회장 테이블·역할 컬럼을 두지 않습니다. 사용자 역할과 관리 권한의 조합은 [도메인 권한 정책](domain-model.md#사용자-역할과-동아리-관리-권한)을 따릅니다.
 
+## club_members
+
+| 컬럼 | 타입 | 필수 | 제약 및 의미 |
+| --- | --- | --- | --- |
+| id | BIGINT | O | PK |
+| user_id | BIGINT | O | FK → users.id, 가입 사용자 |
+| club_id | BIGINT | O | FK → clubs.id |
+| status | VARCHAR(20) | O | ACTIVE / LEFT |
+| approved_by | BIGINT | O | FK → users.id, 최근 부원을 등록한 운영자 |
+| joined_at | TIMESTAMPTZ | O | 최근 가입·재가입 시각 |
+| left_at | TIMESTAMPTZ | 조건부 | LEFT이면 필수, ACTIVE이면 NULL |
+| created_at | TIMESTAMPTZ | O | 가입 관계 최초 생성 시각 |
+| updated_at | TIMESTAMPTZ | O | 마지막 상태 변경 시각 |
+
+- UNIQUE(user_id, club_id)로 동일 사용자·동아리 관계를 하나만 유지합니다.
+- CHECK로 status 허용값과 LEFT의 left_at 존재·ACTIVE의 left_at 부재를 검증합니다.
+- left_at이 있으면 joined_at 이상이어야 합니다. 재가입 시 created_at은 유지하며 joined_at·approved_by를 갱신하고 left_at을 NULL로 변경합니다.
+- 후속 아카이브 기능을 도입하면 ACTIVE 행의 status를 LEFT로, left_at·updated_at을 전환 시각으로 갱신합니다. 기존 LEFT 행과 approved_by·joined_at·created_at은 보존합니다. 동아리 상태 변경과 같은 트랜잭션에서 처리하며 [아카이브 정책](future-design.md#게시-및-아카이브-정책--확정)을 따릅니다.
+- 가입 한도는 회원 status와 동아리 operation_status를 함께 조회해 계산하며 별도 집계 컬럼을 두지 않습니다. LEFT 행은 현재 가입 목록·한도에서 제외하며 DB에는 보존합니다. 집계 기준은 [가입 한도 정책](domain-model.md#동아리-가입-한도--확정)을 따릅니다.
+- approved_by의 ADMIN 권한은 가입 등록·재가입 유스케이스에서 검증합니다. FK만으로 등록 권한을 판단하지 않습니다.
+- 본인 탈퇴 신청·승인 및 개별 탈퇴 처리는 [추후 확장](future-design.md#동아리-탈퇴-신청승인--추후-확장)이며 MVP에 신청 테이블·대기 상태를 추가하지 않습니다. LEFT와 left_at은 아카이브 일괄 처리에 사용합니다.
+- 현재 미구현이며 향후 해당 테이블 최초 마이그레이션에 포함합니다. 가입 수를 강제 제한하는 DB 제약은 도입하지 않습니다. 업무 기준은 [가입 관계 정책](domain-model.md#동아리-가입-관계--확정)을 따릅니다.
+
 ## activities
 
 | 컬럼 | 타입 | 필수 | 제약 및 의미 |
@@ -105,15 +132,15 @@ erDiagram
 | organizer_id | BIGINT | O | FK → users.id, 지정된 활동 주최자 |
 | title | VARCHAR(200) | O | 제목 |
 | content | TEXT | O | 활동 내용 |
-| activity_date | DATE | O | 실제 활동일, 활동도 계산 기준 |
+| starts_at | TIMESTAMPTZ | O | 개최 날짜·시각; Asia/Seoul 날짜로 D-Day 계산 |
 | capacity | INTEGER | O | 활동 참가 총정원, 주최자 포함, 1 이상; 설계 초안 |
-| recruitment_closes_at | TIMESTAMPTZ | O | 활동 참가 모집 종료 시각; 종료일의 시각 경계는 후속 확정 |
+| recruitment_closes_at | TIMESTAMPTZ | O | 모집 마감 날짜·시각, starts_at보다 이전 |
 | created_at | TIMESTAMPTZ | O | 등록 시각 |
 | updated_at | TIMESTAMPTZ | O | 수정 시각 |
 | deleted_at | TIMESTAMPTZ | X | NULL이면 미삭제, 값이 있으면 논리 삭제 시각 |
 
 작성자와 주최자는 별도의 필수 사용자 관계입니다. 생성 시 주최자의 CONFIRMED 참가 관계도 같은 트랜잭션에서 저장합니다.
-권한과 자동 참가 정책은 [활동 주최자](domain-model.md#동아리-활동-주최자--확정)를 따릅니다. 날짜·정원·마감 필드의 상세 제약은 구현 전 확정합니다.
+권한과 자동 참가 정책은 [활동 주최자](domain-model.md#동아리-활동-주최자--확정)를 따릅니다. capacity >= 1, recruitment_closes_at < starts_at을 검증합니다. activity_date를 중복 저장하지 않으며 개최일은 starts_at에서 계산합니다.
 
 ## notices
 
@@ -153,12 +180,12 @@ erDiagram
 | location | VARCHAR(255) | O | 개최 장소 (길이 초안) |
 | capacity | INTEGER | O | 주최자 포함 회차 정원, 1 이상 |
 | recruitment_opens_at | TIMESTAMPTZ | 조건부 | 회차 모집 공개 시각 |
-| recruitment_closes_at | TIMESTAMPTZ | 조건부 | 회차 모집 마감 시각 |
+| recruitment_closes_at | TIMESTAMPTZ | O | 회차 모집 마감 날짜·시각 |
 | cancelled_at | TIMESTAMPTZ | X | 회차 취소 시각 |
 
 - 공개 <= 시작 - 2시간, 공개 < 마감 < 시작을 검증합니다. 신규 공개 시 과거 시각 지정은 거부합니다.
 - 조기 마감·실제 공개 시각 감사 정보는 API 상세 설계와 함께 컬럼을 보완합니다.
-- 일회성도 회차 하나를 생성하는 기존 구조입니다. 회차 생성 API·모집 글과의 원자적 저장 범위는 구현 전 확정합니다.
+- 글 작성 시 gatherings·첫 gathering_sessions·주최자의 CONFIRMED 참가 행을 같은 트랜잭션에서 생성합니다.
 - 반복 회차·고정 멤버 명단 반영은 후속 설계입니다.
 
 ## gathering_session_participants
@@ -169,9 +196,14 @@ erDiagram
 | session_id | BIGINT | O | FK → gathering_sessions.id |
 | user_id | BIGINT | O | FK → users.id |
 | status | VARCHAR(20) | O | CONFIRMED / CANCELLED |
+| attendance_status | VARCHAR(20) | O | UNCHECKED / PRESENT, 기본값 UNCHECKED |
+| attendance_checked_by | BIGINT | X | FK → users.id, 마지막 체크 주최자 |
+| attendance_checked_at | TIMESTAMPTZ | X | 마지막 체크 시각 |
 | created_at / updated_at | TIMESTAMPTZ | O | 최초 생성·마지막 수정 |
 
 UNIQUE(session_id, user_id)로 중복 참가를 방지합니다. gathering_id는 session_id로 알 수 있으므로 중복 저장하지 않습니다. 취소·재참가는 기존 행의 상태를 변경합니다.
+
+출결은 UNCHECKED / PRESENT만 CHECK로 허용합니다. UNCHECKED에서는 체크 사용자·시각이 NULL이고 PRESENT에서는 둘 다 필수입니다. 실제 권한은 현재 주최자로 검사합니다.
 
 ## activity_participants
 
@@ -181,10 +213,15 @@ UNIQUE(session_id, user_id)로 중복 참가를 방지합니다. gathering_id는
 | activity_id | BIGINT | O | FK → activities.id |
 | user_id | BIGINT | O | FK → users.id |
 | status | VARCHAR(20) | O | CONFIRMED / CANCELLED, 본인 선착순 참가·취소 |
+| attendance_status | VARCHAR(20) | O | UNCHECKED / PRESENT, 기본값 UNCHECKED |
+| attendance_checked_by | BIGINT | X | FK → users.id, 마지막 체크 주최자 |
+| attendance_checked_at | TIMESTAMPTZ | X | 마지막 체크 시각 |
 | created_at | TIMESTAMPTZ | O | 참가자 등록 시각 |
 | updated_at | TIMESTAMPTZ | O | 마지막 수정 시각 |
 
-UNIQUE(activity_id, user_id)로 중복 참가를 방지합니다. 취소·재참가는 기존 행의 상태를 변경합니다. 출결 필드는 [후속 스키마](future-design.md#출결-확장-필드)를 참고합니다.
+UNIQUE(activity_id, user_id)로 중복 참가를 방지합니다. 취소·재참가는 기존 행의 상태를 변경합니다.
+
+출결은 UNCHECKED / PRESENT만 CHECK로 허용합니다. UNCHECKED에서는 체크 사용자·시각이 NULL이고 PRESENT에서는 둘 다 필수입니다. 실제 권한은 현재 주최자로 검사합니다.
 
 ## activity_images
 
@@ -205,7 +242,8 @@ UNIQUE(activity_id, user_id)로 중복 참가를 방지합니다. 취소·재참
 | users | UNIQUE(intra_id) | 42 계정 조회 및 중복 방지 |
 | club_managers | UNIQUE(user_id, club_id) | 권한 확인, 사용자별 관리 동아리 조회 |
 | club_managers | INDEX(club_id) | 동아리별 관리자 조회 |
-| activities | INDEX(club_id, activity_date) | 동아리별 활동 조회와 활동도 집계 |
+| club_members | UNIQUE(user_id, club_id), INDEX(club_id, status) | 부원 중복 방지·명단 조회 |
+| activities | INDEX(club_id, starts_at) | 동아리별 활동 조회와 활동도 집계 |
 | notices | INDEX(club_id, created_at) | 동아리별 공지 조회 |
 | gatherings | INDEX(organizer_id) | 주최한 소모임 조회 |
 | gathering_sessions | INDEX(gathering_id, starts_at) | 모임별 일정 조회 |
@@ -218,9 +256,9 @@ PK에는 기본 인덱스가 존재합니다. 추가 인덱스는 API 조회 조
 
 ## 구현 전 확정할 사항
 
-- 활동 개최 시각·모집 마감의 타입과 제약, 사진 저장 식별자·제약: [업무 결정](domain-model.md#남은-결정-사항) 이후 반영
+- 사진 저장 식별자·제약: [업무 결정](domain-model.md#남은-결정-사항) 이후 반영
 - 동시 정원 보장을 위한 잠금 또는 원자적 갱신 전략; 현재 인원 파생값만 조회한 뒤 저장하는 방식은 정원을 보장하지 못함
-- 소모임의 모집 글·첫 회차 생성 단위, 추가 생성·수정 시각 컬럼
+- 소모임의 추가 생성·수정 시각 컬럼
 - API 조회 조건에 맞춘 추가 인덱스와 참가 상태 CHECK 제약
 
-회원·반복·고정 멤버·출결 스키마는 범위 합의 없이 최초 MVP 마이그레이션에 포함하지 않습니다.
+반복·고정 멤버·참가 승인제 스키마는 범위 합의 없이 최초 MVP 마이그레이션에 포함하지 않습니다.

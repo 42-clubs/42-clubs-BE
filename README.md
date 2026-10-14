@@ -55,12 +55,12 @@ Spotless는 Google Java Format AOSP 스타일을 적용하며 빌드 중에는 �
 | 동아리 공개 조회 | 완료: 목록·상세, 페이지네이션·운영 상태 필터·모집 표시 |
 | 인증·내 정보 | 완료: 42경산 OAuth, 세션·CSRF·로그아웃·USER/ADMIN 검사; 실제 42 자격증명 연동 확인 필요 |
 | DB 스키마 | users(V1)·clubs(V2) 구현; 나머지는 설계 초안 |
-| 활동·공지·소모임 | 미구현: [현재 MVP 범위](docs/domain-model.md#축소-mvp--2026-10-14-확정)에 따라 작성·조회·선착순 참가 구현 예정 |
+| 활동·공지·소모임 | 미구현: [현재 MVP 범위](docs/domain-model.md#축소-mvp--2026-10-14-확정)에 따라 작성·조회·선착순 참가·기본 출결 구현 예정 |
 | Swagger/OpenAPI | 미도입: Boot 3.5 호환 springdoc 2.8.x의 패치 버전 결정 필요 |
 | CI·배포 | GitHub Actions CI 미도입; 배포 대상·애플리케이션 컨테이너화·CD 미정 |
 
 다음 구현은 [미정 정책](docs/domain-model.md#남은-결정-사항)과 [API 계약](docs/api-endpoints.md#구현-전-확정할-계약)을 확정한 뒤 기능별 DB·코드·테스트로 진행합니다.
-출결·회원 관리 등 추가 범위는 [후속 설계](docs/future-design.md)에서 확인합니다.
+부원 직접 등록·명단과 기본 출결은 MVP 설계에 포함합니다. 글 수정·일정 변경 등 확장은 [후속 설계](docs/future-design.md)에서 확인합니다.
 
 ## 문서 안내
 
