@@ -185,6 +185,8 @@ MVP는 CONFIRMED/CANCELLED와 선착순 참가·취소·재참가만 구현합�
 
 ## 후속 API 초안
 
+회장 권한 부여·회수는 최고 관리자 MVP로 이동했습니다. 현재 계약은 [MVP API](api-endpoints.md#최고-관리자-권한-관리)를 따릅니다.
+
 아래는 모두 미구현·추가 범위 합의 대상입니다. 기본 경로는 `/api/v1`이며 [공통 API 원칙](api-endpoints.md#공통-원칙)을 따릅니다.
 
 ### 사용자·내역 조회
@@ -209,9 +211,6 @@ MVP는 CONFIRMED/CANCELLED와 선착순 참가·취소·재참가만 구현합�
 | PATCH | /clubs/{clubId} | 소개·기본 정보 수정 | ACTIVE인 해당 동아리 관리자 |
 | PUT | /clubs/{clubId}/recruitment | 입부 모집 정보 설정·갱신 — MVP 제외 | ACTIVE인 해당 동아리 관리자 |
 | PATCH | /clubs/{clubId}/operation-status | 활성·아카이브 전환 | 운영진 |
-| GET | /clubs/{clubId}/managers | 관리자 목록 | 운영진 또는 해당 동아리 관리자 |
-| PUT | /clubs/{clubId}/managers/{userId} | 관리 권한 부여 | 운영진 |
-| DELETE | /clubs/{clubId}/managers/{userId} | 관리 권한 해제 | 운영진 |
 
 ### 활동·공지 관리 API
 

@@ -54,7 +54,8 @@ erDiagram
 | created_at | TIMESTAMPTZ | O | 계정 생성 시각 |
 | updated_at | TIMESTAMPTZ | O | 수정 시각 |
 
-- MVP는 현재 V1·User 엔티티와 동일한 스키마를 사용합니다. account_status·BLACKHOLED 상태·식별 정보의 조건부 NULL 제약은 추가하지 않습니다.
+- 위 표는 현재 V1·User 엔티티의 구현 상태입니다. MVP 권한 관리 구현 시 role에 SUPER_ADMIN을 추가하는 새 마이그레이션과 enum 변경이 필요합니다. 기존 V1은 수정하지 않습니다. account_status·BLACKHOLED 상태·식별 정보의 조건부 NULL 제약은 추가하지 않습니다.
+- 현재 내부 id와 UNIQUE intra_id를 분리합니다. 42 숫자 ID를 PK로 직접 사용하는 방안은 논의 중이며 아직 스키마 변경을 확정하지 않았습니다.
 
 계정 생성·권한 부여 정책은 [도메인 문서](domain-model.md#사용자-역할과-동아리-관리-권한)를 참조합니다.
 
@@ -129,7 +130,7 @@ erDiagram
 | id | BIGINT | O | PK |
 | club_id | BIGINT | O | FK → clubs.id |
 | author_id | BIGINT | O | FK → users.id, 최초 작성자 |
-| organizer_id | BIGINT | O | FK → users.id, 지정된 활동 주최자 |
+| organizer_id | BIGINT | O | FK → users.id, 작성자와 동일한 활동 주최자 |
 | title | VARCHAR(200) | O | 제목 |
 | content | TEXT | O | 활동 내용 |
 | starts_at | TIMESTAMPTZ | O | 개최 날짜·시각; Asia/Seoul 날짜로 D-Day 계산 |
@@ -139,7 +140,7 @@ erDiagram
 | updated_at | TIMESTAMPTZ | O | 수정 시각 |
 | deleted_at | TIMESTAMPTZ | X | NULL이면 미삭제, 값이 있으면 논리 삭제 시각 |
 
-작성자와 주최자는 별도의 필수 사용자 관계입니다. 생성 시 주최자의 CONFIRMED 참가 관계도 같은 트랜잭션에서 저장합니다.
+작성자와 주최자는 MVP에서 동일한 회장 사용자입니다. 두 컬럼을 유지하되 서버에서 인증 사용자로 설정하고 CHECK(author_id = organizer_id)를 적용하는 설계입니다. 향후 주최자 분리를 도입하면 제약을 변경합니다. 생성 시 주최자의 CONFIRMED 참가 관계도 같은 트랜잭션에서 저장합니다.
 권한과 자동 참가 정책은 [활동 주최자](domain-model.md#동아리-활동-주최자--확정)를 따릅니다. capacity >= 1, recruitment_closes_at < starts_at을 검증합니다. activity_date를 중복 저장하지 않으며 개최일은 starts_at에서 계산합니다.
 
 ## notices
