@@ -157,16 +157,18 @@ USER/ADMIN 모두 ClubManager 관계로 작성 권한을 검사합니다. ADMIN 
 | 메서드 | 경로 | 기능 | 권한 |
 | --- | --- | --- | --- |
 | GET | /gatherings | 소모임 목록 | 공개 |
-| GET | /gatherings/{gatheringId} | 소모임 상세 | 공개 |
+| GET | /gatherings/{gatheringId} | 소모임 소개·기본 정보 | 공개 |
 | POST | /gatherings | 모집 글·첫 회차·주최자 참가 함께 생성, FIRST_COME 고정 | 로그인 |
-| GET | /gatherings/{gatheringId}/sessions | 실제 회차 목록 | 공개 |
+| GET | /gatherings/{gatheringId}/sessions | 예정·지난 회차 목록 | 공개 |
+| POST | /gatherings/{gatheringId}/sessions | 같은 소모임에 다음 회차 추가·주최자 참가 생성 | 해당 소모임 주최자 |
 | GET | /gathering-sessions/{sessionId} | 회차 상세·모집 상태·잔여 정원 | 공개 |
 | POST | /gathering-sessions/{sessionId}/participants | 본인 선착순 참가·재참가 | 로그인 본인 |
 | GET | /gathering-sessions/{sessionId}/participants/me | 본인 참가·출결 상태 | 로그인 본인 |
 | DELETE | /gathering-sessions/{sessionId}/participants/me | 본인 참가 취소 | 로그인 본인, 주최자 제외 |
 
 POST /gatherings는 첫 회차의 개최·종료·모집 마감 일시·장소·정원을 함께 받아 글·회차·주최자 참가를 원자적으로 생성합니다. 실패하면 모두 롤백합니다.
-기본 이미지·개최일·모집 종료일·정원과 현재 인원을 표시하며 반복·고정 멤버·승인 API는 현재 범위에 포함하지 않습니다.
+POST /gatherings/{gatheringId}/sessions는 새 회차의 일시·장소·정원·모집 마감을 받아 회차와 주최자 참가를 함께 생성합니다. 저장된 organizer_id로 권한을 검사하고 이전 회차의 참가자를 복사하지 않습니다.
+소모임 상세 화면은 기본 정보와 회차 목록을 조합하며 참가·취소·출결은 sessionId 단위입니다. 회차 목록의 예정·지난 구분과 페이지네이션 DTO는 구현 시 확정합니다. 자동 반복·고정 멤버·참가 승인 API는 후속입니다.
 
 ### 동아리 부원 관리
 
@@ -192,7 +194,7 @@ POST /gatherings는 첫 회차의 개최·종료·모집 마감 일시·장소·
 
 ### 일정·참가·목록 계약
 
-- 활동과 소모임 첫 회차는 startsAt·recruitmentClosesAt에 오프셋을 포함한 ISO 8601 날짜·시각을 필수로 받습니다. 표시·D-Day의 날짜 기준은 Asia/Seoul이며 모집 마감은 개최보다 이전이어야 합니다.
+- 활동과 소모임의 모든 회차는 startsAt·recruitmentClosesAt에 오프셋을 포함한 ISO 8601 날짜·시각을 필수로 받습니다. 표시·D-Day의 날짜 기준은 Asia/Seoul이며 모집 마감은 개최보다 이전이어야 합니다.
 - 참가·재참가·취소는 [시각 조건](domain-model.md#일정과-표시)을 검사합니다. 정확히 마감 시각이거나 마감 이후인 참가·취소는 409로 처리합니다.
 - 활동·소모임 목록은 모집 중 우선 → 개최 시각 오름차순 → ID 오름차순으로 정렬합니다. 마감·종료 항목도 뒤쪽에 포함하며 검색 API는 후속입니다. 정렬은 페이지네이션 전에 적용합니다.
 - 글·일정 수정 API는 MVP에 제공하지 않습니다. 기존 동아리 조회와 그 정렬·응답 계약은 유지합니다.
@@ -201,7 +203,7 @@ POST /gatherings는 첫 회차의 개최·종료·모집 마감 일시·장소·
 
 - 활동·소모임 목록/상세: D-Day·잔여 정원 등 나머지 DTO 이름과 상세 응답 구성
 - 사진 업로드 경로·요청/응답, 기본 이미지 제공 방식
-- 목록 필터·페이지네이션, 생성 응답과 참가·취소·부원 등록 응답
+- 목록 필터·페이지네이션, 소모임 대표 회차 선택·진행 중 회차 표시, 회차 생성 응답과 참가·취소·부원 등록 응답
 - 마감·정원·중복·동시 참가 충돌의 세부 오류 코드; 기본 HTTP 상태는 409
 - 참가자 명단은 공개 응답에서 제외하고 본인 상태와 관리 조회를 구분
 
