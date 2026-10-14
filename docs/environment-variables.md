@@ -32,7 +32,7 @@
 | AUTH_COOKIE_SECURE | false | 로컬 HTTP는 false, HTTPS 배포는 true. true이면 브라우저는 HTTP 요청에 세션 쿠키를 보내지 않습니다. |
 | AUTH_COOKIE_SAME_SITE | lax | lax / strict / none. 로컬은 lax. 서로 다른 사이트의 프론트엔드에 쿠키를 보내려면 none과 Secure=true를 함께 설정합니다. 브라우저의 타사 쿠키 제한도 확인해야 합니다. |
 
-인증 변수는 모두 Spring Boot에서 읽습니다. 경산 제한은 42 응답 이메일의 정확한 `student.42gyeongsan.kr` 도메인을 검사하며 환경변수로 완화하지 않습니다. API 권한과 응답 계약은 [인증 명세](api-endpoints.md#인증--구현-계약)를 따릅니다.
+인증 변수는 모두 Spring Boot에서 읽습니다. 경산 제한은 42 응답 이메일의 정확한 `student.42gyeongsan.kr` 또는 `42gyeongsan.kr` 도메인을 검사하며 환경변수로 완화하지 않습니다. API 권한과 응답 계약은 [인증 명세](api-endpoints.md#인증--구현-계약)를 따릅니다.
 
 ## 프론트엔드 없이 로컬 로그인 테스트
 
@@ -90,7 +90,7 @@ docker compose up -d --wait
 
 | reason | 확인할 사항 |
 | --- | --- |
-| campus_not_allowed | 42 응답 이메일이 정확한 `student.42gyeongsan.kr` 도메인인지 |
+| campus_not_allowed | 42 응답 이메일이 정확한 `student.42gyeongsan.kr` 또는 `42gyeongsan.kr` 도메인인지 |
 | invalid_42_profile | 이메일·ID·로그인명 등 필수 프로필의 누락·형식 오류 |
 | authorization_request_not_found | state에 일치하는 인가 요청 없음. 세션 누락·state 불일치·쿠키·호스트 변경·서버 재시작 |
 | invalid_state_parameter | OAuth state 불일치. 시작 주소에서 다시 로그인 |

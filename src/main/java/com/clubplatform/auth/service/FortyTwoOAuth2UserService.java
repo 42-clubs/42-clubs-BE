@@ -5,6 +5,7 @@ import com.clubplatform.user.dto.UserIdentity;
 import com.clubplatform.user.service.UserAccountService;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -14,6 +15,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class FortyTwoOAuth2UserService extends DefaultOAuth2UserService {
+    private static final Set<String> ALLOWED_EMAIL_DOMAINS =
+            Set.of("student.42gyeongsan.kr", "42gyeongsan.kr");
     private final UserAccountService userAccountService;
 
     public FortyTwoOAuth2UserService(UserAccountService userAccountService) {
@@ -27,9 +30,8 @@ public class FortyTwoOAuth2UserService extends DefaultOAuth2UserService {
         int at = email.lastIndexOf('@');
         if (at <= 0
                 || email.indexOf('@') != at
-                || !email.substring(at + 1)
-                        .toLowerCase(Locale.ROOT)
-                        .equals("student.42gyeongsan.kr")) {
+                || !ALLOWED_EMAIL_DOMAINS.contains(
+                        email.substring(at + 1).toLowerCase(Locale.ROOT))) {
             throw failure("campus_not_allowed");
         }
         try {

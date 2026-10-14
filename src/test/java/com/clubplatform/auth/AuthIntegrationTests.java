@@ -19,6 +19,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -132,7 +134,10 @@ class AuthIntegrationTests {
         for (String email :
                 List.of(
                         "user@42seoul.kr",
-                        "user@42gyeongsan.kr",
+                        "user@evil42gyeongsan.kr",
+                        "user@42gyeongsan.kr.evil",
+                        "user@sub.42gyeongsan.kr",
+                        "a@b@42gyeongsan.kr",
                         "user@evilstudent.42gyeongsan.kr",
                         "user@sub.student.42gyeongsan.kr",
                         "user@student.42gyeongsan.kr.evil",
@@ -170,12 +175,19 @@ class AuthIntegrationTests {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM users", Long.class)).isZero();
     }
 
-    @Test
-    void acceptsExactCampusDomainIgnoringCaseAndFallsBackToLoginName() throws Exception {
-        profile = Map.of("id", 4242, "login", "testlogin", "email", "test@STUDENT.42GYEONGSAN.KR");
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "test@student.42gyeongsan.kr", "test@STUDENT.42GYEONGSAN.KR",
+                "test@42gyeongsan.kr", "test@42GYEONGSAN.KR"
+            })
+    void acceptsStudentAndStaffDomainsIgnoringCaseWithoutGrantingAdmin(String email)
+            throws Exception {
+        profile = Map.of("id", 4242, "login", "testlogin", "email", email);
         mvc.perform(get("/api/v1/me").session(login()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.displayName").value("testlogin"));
+                .andExpect(jsonPath("$.displayName").value("testlogin"))
+                .andExpect(jsonPath("$.role").value("USER"));
     }
 
     @Test

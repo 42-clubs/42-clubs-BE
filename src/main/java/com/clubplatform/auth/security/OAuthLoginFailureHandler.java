@@ -19,7 +19,9 @@ import org.springframework.stereotype.Component;
 public class OAuthLoginFailureHandler implements AuthenticationFailureHandler {
     private static final Map<String, String> REASONS =
             Map.ofEntries(
-                    Map.entry("campus_not_allowed", "42 이메일 도메인이 student.42gyeongsan.kr인지 확인하세요."),
+                    Map.entry(
+                            "campus_not_allowed",
+                            "42 이메일 도메인이 student.42gyeongsan.kr 또는 42gyeongsan.kr인지 확인하세요."),
                     Map.entry("invalid_42_profile", "42 응답의 이메일·ID·로그인명 등 필수 프로필을 확인하세요."),
                     Map.entry(
                             "authorization_request_not_found",
