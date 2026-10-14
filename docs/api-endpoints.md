@@ -1,14 +1,16 @@
-# API 엔드포인트 초안
+# API 명세
 
-도메인·ERD 기준의 메서드, 경로, 접근 권한을 기록합니다.
-동아리 공개 목록·상세 조회, 42 로그인·CSRF·로그아웃·내 정보 조회는 구현했으며 아래 구현 계약을 따릅니다. 다른 API는 구현 전 초안입니다.
-다른 API의 요청·응답 DTO, 오류 코드와 상세 페이지네이션은 해당 기능 구현 시 확정합니다.
-인증은 서버 세션을 사용하며 일반 회원가입 API와 사이트 자체 계정 탈퇴 API는 제공하지 않습니다.
-MVP는 동아리 본인 탈퇴·개별 탈퇴 처리와 블랙홀 처리를 제공하지 않습니다. 출결은 [기본 구성](domain-model.md#출결--mvp-기본-구성)만 제공하며 고도화는 [추후 확장](domain-model.md#추후-확장-기능--mvp-제외)으로 둡니다. 기록 보존 기간·영구 파기 절차는 팀 합의 전까지 보류합니다.
+인증과 동아리 공개 조회는 구현 계약입니다. 활동·공지·소모임은 미구현 초안이며 구현 시 요청·응답 DTO를 확정합니다.
+[현재 MVP 정책](domain-model.md#축소-mvp--2026-10-14-확정)과 [후속 API](future-design.md#후속-api-초안)를 구분해 사용합니다.
+
+- [공통 원칙](#공통-원칙)
+- [인증 — 구현 완료](#인증--구현-계약)
+- [동아리 조회 — 구현 완료](#동아리-공개-조회--구현-계약)
+- [활동·공지·소모임 — 설계 초안](#mvp-api--미구현)
 
 ## 공통 원칙
 
-- 업무 API 기본 경로는 `/api/v1`입니다. 아래 경로는 이를 생략했습니다.
+- 업무 API 기본 경로는 `/api/v1`입니다. 구현 계약은 전체 경로를, 미구현 API 표는 접두사를 생략한 경로를 사용합니다.
 - 본인 식별자는 인증 정보로 결정합니다. 신청 요청에서 임의 userId를 받아 다른 사람으로 신청할 수 없습니다.
 - 변경 요청은 세션 쿠키와 CSRF 헤더가 필요합니다. CSRF 토큰 누락·불일치는 403입니다.
 - 운영진은 ADMIN, 동아리 관리자는 해당 ClubManager 관계, 활동·소모임 주최자는 해당 organizer_id로 검사합니다.
@@ -17,7 +19,7 @@ MVP는 동아리 본인 탈퇴·개별 탈퇴 처리와 블랙홀 처리를 제�
 - 목록은 페이지네이션을 적용하며 상세 매개변수는 후속 합의합니다.
 - 생성은 201, 일반 조회·수정은 200 또는 본문 없는 204를 사용합니다. 구체적인 응답은 DTO 단계에서 고정합니다.
 - 인증 실패 401, 권한 부족 403, 대상 없음 404, 입력 오류 400, 정원·상태 충돌 409를 기본으로 합니다.
-- DELETE 참여 요청은 관계 물리 삭제가 아닌 취소 상태 변경입니다. 활동·공지의 DELETE는 [삭제 정책](domain-model.md#활동공지-삭제와-기록-보존--확정)에 따른 논리 삭제입니다.
+- DELETE 참여 요청은 관계 물리 삭제가 아닌 취소 상태 변경입니다. 글 삭제 API는 현재 MVP에서 제외합니다.
 
 ## 인증 — 구현 계약
 
@@ -38,54 +40,13 @@ MVP는 동아리 본인 탈퇴·개별 탈퇴 처리와 블랙홀 처리를 제�
 - `/me`에 이메일·42 API 토큰·42 전체 프로필은 포함하지 않습니다. 사용자 계정은 42 ID 기준으로 중복을 방지하고 역할은 DB 기준입니다.
 - JWT 재발급·다른 소셜 계정 연동·사이트 계정 탈퇴는 제공하지 않습니다. 블랙홀 확인과 기존 세션 이용 차단은 MVP에서 제외하며 추후 확장 시 검토합니다.
 
-## 내 정보와 사용자 선택
-
-| 메서드 | 경로 | 기능 | 권한 |
-| --- | --- | --- | --- |
-| GET | /me | 내 정보 | 로그인 |
-| GET | /me/clubs | 관리하는 동아리 | 로그인 |
-| GET | /me/gatherings | 주최 소모임 및 고정 멤버 신청 내역, 필터 구분 | 로그인 |
-| GET | /me/gathering-sessions | 회차별 참여 내역·본인 출결 | 로그인 |
-| GET | /me/activities | 주최·참여 활동 및 본인 출결 | 로그인 |
-| GET | /admin/users?intraLogin=... | 동아리 관리자 지정 대상 검색 | 운영진 |
-| GET | /admin/users/{userId}/clubs | 가입 동아리 목록·운영 상태·한도 집계 개수 | 운영진 |
-| GET | /clubs/{clubId}/organizer-candidates?intraLogin=... | 활동 주최자 지정 대상 검색 | 해당 동아리 관리자 |
-| GET | /activities/{activityId}/participant-candidates?intraLogin=... | 활동 참가자 등록 대상 검색 | 해당 활동 주최자 |
-
-검색 결과는 내부 ID·Intra 로그인명·표시 이름으로 제한하는 초안입니다.
-가입 승인 화면은 별도의 `GET /admin/users/{userId}/clubs`로 ACTIVE인 가입 관계의 동아리 목록과 동아리 운영 상태를 조회하여 승인 대상 옆에 표시합니다. [가입 한도 정책](domain-model.md#동아리-가입-한도--확정)에 따른 집계 개수를 제공합니다. 아카이브에 따른 일괄 탈퇴를 포함하여 LEFT 관계는 현재 가입 목록과 한도 집계에서 제외합니다. 응답 DTO는 가입 관계 구현 시 확정합니다.
-
-## 동아리와 운영진 관리
-
-동아리 회원 가입 등록·재가입 API는 [가입 관계 정책](domain-model.md#동아리-가입-관계--확정)을 따릅니다. 지원은 외부에서 진행하며 내부 가입 신청·승인 대기·거절 API는 두지 않습니다. 본인 탈퇴·개별 탈퇴 처리는 [추후 확장](domain-model.md#동아리-탈퇴-신청승인--추후-확장)으로 두고 MVP에는 관련 API를 제공하지 않습니다. MVP는 기존 부원 등록·명단·가입 현황을 관리합니다. 회원 명단 조회는 [회원 조회 정책](domain-model.md#동아리-회원-명단-조회--확정)에 따라 해당 동아리의 ACTIVE 회원에게만 허용하며 ACTIVE 회원만 반환합니다. 비회원·LEFT 회원은 403이며 ADMIN 또는 ClubManager 권한만으로 허용하지 않습니다. 가입 승인 API의 권한은 ADMIN이며 ClubManager 관계만으로 허용하지 않습니다. 아카이브 상태의 가입 등록·재가입 요청은 상태 충돌(409)로 처리하며 재활성화 후 등록해야 합니다. 가입 동아리 수에 따른 자동 차단은 두지 않고 운영자에게 현재 가입 정보를 제공합니다. 관리자 권한 API를 회원 가입 API로 사용하지 않습니다. MVP 동아리 탐색은 이름·설명을 사용하며 별도의 분류 필드·필터는 제공하지 않습니다.
-
-| 메서드 | 경로 | 기능 | 권한 |
-| --- | --- | --- | --- |
-| GET | /clubs | 동아리 목록, operationStatus 필터 | 공개 |
-| GET | /clubs/{clubId} | 동아리 기본 정보·모집 안내 구현, 활동도 후속 | 공개 |
-| GET | /clubs/{clubId}/members | 현재 가입 회원 명단 | 해당 동아리 ACTIVE 회원 |
-| POST | /clubs | 동아리 생성 | 운영진 |
-| PUT | /admin/clubs/{clubId}/members/{userId} | 외부 결과 확인 후 가입 등록·재가입 승인 | 운영진, 대상 동아리 ACTIVE |
-| PATCH | /clubs/{clubId} | 소개·기본 정보 수정 | ACTIVE인 해당 동아리 관리자 |
-| PUT | /clubs/{clubId}/recruitment | 모집 정보 전체 설정·갱신 | ACTIVE인 해당 동아리 관리자 |
-| PATCH | /clubs/{clubId}/operation-status | 활성·아카이브 전환 | 운영진 |
-| GET | /clubs/{clubId}/managers | 관리자 목록 | 운영진 또는 해당 동아리 관리자 |
-| PUT | /clubs/{clubId}/managers/{userId} | 관리 권한 부여 | 운영진 |
-| DELETE | /clubs/{clubId}/managers/{userId} | 관리 권한 해제 | 운영진 |
-
-기본 목록에서는 아카이브를 제외하고 `operationStatus=ARCHIVED`로 아카이브를 조회합니다.
-동아리 물리 삭제 API는 없습니다. 상태 전이의 효과는 [도메인 정책](domain-model.md#게시-및-아카이브-정책--확정)을 따릅니다. 운영 상태 API의 아카이브 전환은 기존 회원 일괄 탈퇴를 함께 처리하며, 재활성화는 회원 자동 재가입을 수행하지 않습니다.
-운영진도 소개·모집 정보·게시물을 관리하려면 해당 동아리의 ClubManager 관계가 필요합니다.
-상태에 따른 쓰기 허용 범위는 [확정 정책](domain-model.md#상태별-변경-허용-범위--확정)을 따릅니다. 아카이브 상태로 차단되는 쓰기 요청은 상태 충돌(409)로 처리합니다.
-모집 계획 취소도 `PUT /clubs/{clubId}/recruitment`로 처리하며, 서버가 [취소 정책](domain-model.md#모집-계획-취소--확정)에 따라 관련 값을 모두 초기화합니다. 요청 DTO와 입력 충돌의 상세 처리는 해당 API 구현 시 확정합니다.
-
-### 동아리 공개 조회 — 구현 계약
+## 동아리 공개 조회 — 구현 계약
 
 두 API는 로그인 없이 조회할 수 있으며 성공 시 200과 JSON을 반환합니다.
-활동도는 활동 도메인과 [확정된 집계 정책](domain-model.md#활동도-계산) 구현 후 추가하며 현재 응답에 포함하지 않습니다.
+활동도는 활동 도메인과 [확정된 집계 정책](future-design.md#활동도-계산) 구현 후 추가하며 현재 응답에 포함하지 않습니다.
 생성·수정 API와 개발용 초기 데이터는 아직 없으므로 새 DB의 목록은 비어 있습니다.
 
-#### 목록 요청
+### 목록 요청
 
 `GET /api/v1/clubs`
 
@@ -97,7 +58,7 @@ MVP는 동아리 본인 탈퇴·개별 탈퇴 처리와 블랙홀 처리를 제�
 
 `operationStatus=DORMANT`는 지원하지 않으며 400 `INVALID_REQUEST`를 반환합니다.
 
-빈 매개변수는 page·size의 기본값 또는 필터 생략으로 처리합니다.
+operationStatus 생략 시 ACTIVE만 조회합니다. 빈 매개변수는 page·size의 기본값 또는 필터 생략으로 처리합니다.
 정렬은 ID 오름차순으로 고정하며 사용자 지정 정렬은 지원하지 않습니다.
 필터는 페이지네이션 전에 적용하며 `totalElements`는 필터 적용 후 전체 개수입니다.
 데이터가 없거나 마지막 페이지를 넘으면 200과 빈 `content`를 반환합니다.
@@ -120,7 +81,7 @@ MVP는 동아리 본인 탈퇴·개별 탈퇴 처리와 블랙홀 처리를 제�
 }
 ```
 
-#### 상세 요청
+### 상세 요청
 
 `GET /api/v1/clubs/{clubId}` — clubId는 1 이상의 Java long 범위 정수입니다.
 아카이브된 동아리도 ID로 조회할 수 있습니다.
@@ -151,7 +112,7 @@ MVP는 동아리 본인 탈퇴·개별 탈퇴 처리와 블랙홀 처리를 제�
 계산 정책과 날짜 기준은 [도메인 모집 정책](domain-model.md#모집-정보와-상태--확정)을 따릅니다.
 관리자·사용자 정보는 공개 응답에 포함하지 않습니다.
 
-#### 오류 응답
+### 오류 응답
 
 | 조건 | HTTP | code |
 | --- | --- | --- |
@@ -168,90 +129,51 @@ MVP는 동아리 본인 탈퇴·개별 탈퇴 처리와 블랙홀 처리를 제�
 }
 ```
 
-이번에 정한 오류 형식은 두 조회 API의 400·404 계약입니다. 인증·충돌 등 다른 오류 계약은 후속 구현에서 정합니다.
+위 오류는 동아리 조회 계약입니다. 인증 오류는 위 인증 계약을 따르며 새 쓰기 API의 충돌 오류는 구현 시 확정합니다.
 
-## 활동·공지와 활동 출결
+## MVP API — 미구현
+
+아래 경로는 `/api/v1` 접두사를 생략했습니다. 글 생성·조회와 본인 선착순 참가·취소를 우선하며, 수정·운영·회원·출결 API는 [후속 API](future-design.md#후속-api-초안)에서 별도 관리합니다.
+
+### 동아리 활동·공지
 
 | 메서드 | 경로 | 기능 | 권한 |
 | --- | --- | --- | --- |
 | GET | /clubs/{clubId}/activities | 활동 목록 | 공개 |
 | GET | /activities/{activityId} | 활동 상세 | 공개 |
-| POST | /clubs/{clubId}/activities | 활동 등록, 주최자 지정 | ACTIVE인 해당 동아리 관리자 |
-| PATCH | /activities/{activityId} | 활동 내용·주최자 변경 | ACTIVE인 소속 동아리 관리자 |
-| DELETE | /activities/{activityId} | 활동 논리 삭제 | ACTIVE인 소속 동아리 관리자 |
-| GET | /activities/{activityId}/participants | 참가자·출결 관리 명단 | 해당 활동 주최자 |
-| PUT | /activities/{activityId}/participants/{userId} | 참가자 등록 | 해당 활동 주최자 |
-| PATCH | /activities/{activityId}/participants/{userId}/attendance | 출결 체크·정정 | 해당 활동 주최자 |
+| POST | /clubs/{clubId}/activities | 활동 작성·주최자 지정 | ACTIVE인 해당 동아리 ClubManager |
+| POST | /activities/{activityId}/participants | 본인 선착순 참가·재참가 | 로그인 본인 |
+| GET | /activities/{activityId}/participants/me | 본인 참가 상태 | 로그인 본인 |
+| DELETE | /activities/{activityId}/participants/me | 본인 참가 취소 | 로그인 본인, 주최자 예외 유지 |
 | GET | /clubs/{clubId}/notices | 공지 목록 | 공개 |
 | GET | /notices/{noticeId} | 공지 상세 | 공개 |
-| POST | /clubs/{clubId}/notices | 공지 등록 | ACTIVE인 해당 동아리 관리자 |
-| PATCH | /notices/{noticeId} | 공지 수정 | ACTIVE인 소속 동아리 관리자 |
-| DELETE | /notices/{noticeId} | 공지 논리 삭제 | ACTIVE인 소속 동아리 관리자 |
+| POST | /clubs/{clubId}/notices | 공지 작성 | ACTIVE인 해당 동아리 ClubManager |
 
-활동 생성 API는 [주최자 정책](domain-model.md#동아리-활동-주최자--확정)에 따라 지정된 주최자의 참가 관계도 자동 생성합니다.
-활동 출결 API는 대상 userId가 현재 주최자 본인인 경우에도 [주최자 정책](domain-model.md#동아리-활동-주최자--확정)에 따라 체크·정정을 허용합니다. 체크 사용자·시각은 서버에서 기록합니다.
-활동 수정 API의 주최자 변경은 [확정된 변경 정책](domain-model.md#활동-주최자-변경--확정)에 따라 참가 관계를 처리하며, 이후 명단·출결 API의 권한은 변경된 organizer_id로 검사합니다.
-활동·공지 삭제 API와 삭제 후 조회·변경 제한은 [삭제 정책](domain-model.md#활동공지-삭제와-기록-보존--확정)을 따릅니다. 일반 목록은 삭제된 게시물을 제외하며 일반 상세는 404로 응답합니다. 삭제 후 참가·출결 기록은 `/me/activities`에서 본인 내역만, `GET /activities/{activityId}/participants`에서 현재 주최자의 관리 명단만 조회합니다. 삭제된 활동의 변경 요청은 상태 충돌(409)로 처리합니다. 참가자 제거 API는 별도 정책 확정 후 추가합니다.
-MVP 활동 출결은 미확인·출석·결석의 수동 입력·정정만 제공하며 활동일이나 시작 시각에 따른 입력 제한은 두지 않습니다. 지각·자동 판정·통계·변경 이력은 추후 확장으로 둡니다.
-아카이브 중 활동·공지 쓰기와 기존 활동의 참가자·출결 정정은 [확정 정책](domain-model.md#상태별-변경-허용-범위--확정)을 따릅니다. 기존 참가자 등록·출결 API의 주최자 권한은 유지하며, 참가자 제거 경로는 계속 보류합니다.
+USER/ADMIN 모두 ClubManager 관계로 작성 권한을 검사합니다. ADMIN 역할만으로 공지를 작성할 수 없습니다.
+활동 사진 업로드 경로와 DTO는 미정입니다. 주최자의 타 사용자 수동 참가 등록은 핵심 MVP에서 사용하지 않습니다.
 
-## 소모임과 개최 회차
+### 소모임
 
 | 메서드 | 경로 | 기능 | 권한 |
 | --- | --- | --- | --- |
-| GET | /gatherings | 소모임 목록, 진행 방식·참여 단위·목적 필터 | 공개 |
+| GET | /gatherings | 소모임 목록 | 공개 |
 | GET | /gatherings/{gatheringId} | 소모임 상세 | 공개 |
-| POST | /gatherings | 소모임 생성, 유형·참여 단위·확정 방식 지정 | 로그인 |
-| PATCH | /gatherings/{gatheringId} | 기본 정보·반복 규칙 수정 | 해당 소모임 주최자 |
-| PUT | /gatherings/{gatheringId}/cancellation | 전체 모임 취소 | 해당 소모임 주최자 |
+| POST | /gatherings | 모집 글 작성, FIRST_COME 고정 | 로그인 |
 | GET | /gatherings/{gatheringId}/sessions | 실제 회차 목록 | 공개 |
-| POST | /gatherings/{gatheringId}/sessions | 회차 생성 | 해당 소모임 주최자 |
 | GET | /gathering-sessions/{sessionId} | 회차 상세·모집 상태·잔여 정원 | 공개 |
-| PATCH | /gathering-sessions/{sessionId} | 회차 일시·장소·정원 수정 | 해당 소모임 주최자 |
-| PUT | /gathering-sessions/{sessionId}/cancellation | 해당 회차 취소 | 해당 소모임 주최자 |
-| PUT | /gatherings/{gatheringId}/recruitment | 고정 멤버 모집 공개·마감 설정 | 해당 소모임 주최자 |
-| PUT | /gathering-sessions/{sessionId}/recruitment | 회차별 모집 공개·마감 설정 | 해당 소모임 주최자 |
+| POST | /gathering-sessions/{sessionId}/participants | 본인 선착순 참가·재참가 | 로그인 본인 |
+| GET | /gathering-sessions/{sessionId}/participants/me | 본인 참가 상태 | 로그인 본인 |
+| DELETE | /gathering-sessions/{sessionId}/participants/me | 본인 참가 취소 | 로그인 본인, 주최자 제외 |
 
-일정·정원 변경과 공개 검증은 [소모임 일정 정책](domain-model.md#모집-공개와-일정)을 따릅니다.
-고정 멤버 모집은 FIXED_MEMBERS, 회차별 모집은 PER_SESSION에만 허용합니다.
-반복 규칙의 자동 회차 생성 범위·중복 방지와 예약 공개 방식은 후속 설계입니다.
-취소 복원 API는 우선 제외합니다.
+일회성도 회차를 사용하는 기존 경로 초안입니다. 모집 글과 첫 회차의 생성 요청을 묶는 방식은 구현 전 확정합니다.
+기본 이미지·개최일·모집 종료일·정원과 현재 인원을 표시하며 반복·고정 멤버·승인 API는 현재 범위에 포함하지 않습니다.
 
-## 고정 멤버 가입 — FIXED_MEMBERS 전용
+## 구현 전 확정할 계약
 
-| 메서드 | 경로 | 기능 | 권한 |
-| --- | --- | --- | --- |
-| POST | /gatherings/{gatheringId}/participants | 본인 가입 신청·재신청 | 로그인 |
-| GET | /gatherings/{gatheringId}/participants/me | 본인 가입 상태 | 로그인 본인 |
-| GET | /gatherings/{gatheringId}/participants | 신청자·멤버 관리 목록 | 해당 소모임 주최자 |
-| PATCH | /gatherings/{gatheringId}/participants/{userId}/decision | PENDING 승인·거절 | 해당 소모임 주최자 |
+- 활동·소모임 목록/상세: D-Day, capacity, currentParticipantCount, 잔여 정원, 모집 종료일의 DTO 이름·날짜/시각 형식
+- 사진 업로드 경로·요청/응답, 기본 이미지 제공 방식
+- 목록 필터·정렬·페이지네이션, 생성 응답과 참가·취소 응답
+- 마감·정원·중복·동시 참가 충돌의 세부 오류 코드; 기본 HTTP 상태는 409
+- 참가자 명단은 공개 응답에서 제외하고 본인 상태와 관리 조회를 구분
 
-참여 취소·탈퇴 경로는 중도 탈퇴가 미래 회차에 미치는 영향과 허용 시점을 정한 뒤 추가합니다.
-최초 모집 취소·재신청 허용 원칙은 유지합니다. 주최자 개별 탈퇴는 허용하지 않습니다.
-회차 명단 반영은 서버에서 처리하며 고정 멤버의 회차별 별도 신청·승인은 받지 않습니다.
-
-## 회차별 신청 — PER_SESSION 전용
-
-| 메서드 | 경로 | 기능 | 권한 |
-| --- | --- | --- | --- |
-| POST | /gathering-sessions/{sessionId}/participants | 본인 신청·재신청 | 로그인 |
-| GET | /gathering-sessions/{sessionId}/participants/me | 본인 참여·출결 상태 | 로그인 본인 |
-| DELETE | /gathering-sessions/{sessionId}/participants/me | 본인 신청·참여 취소 | 본인, 주최자 제외 |
-| PATCH | /gathering-sessions/{sessionId}/participants/{userId}/decision | PENDING 승인·거절 | 해당 소모임 주최자 |
-
-신청·재신청·취소는 [도메인 신청 규칙](domain-model.md#신청-상태와-재신청)을 따릅니다. 중복 활성 신청은 409입니다.
-
-## 회차 출결 — 두 참여 단위 공통
-
-| 메서드 | 경로 | 기능 | 권한 |
-| --- | --- | --- | --- |
-| GET | /gathering-sessions/{sessionId}/participants | 회차 참가자·출결 명단 | 해당 소모임 주최자 |
-| PATCH | /gathering-sessions/{sessionId}/participants/{userId}/attendance | 출결 체크·정정 | 해당 소모임 주최자 |
-
-FIXED_MEMBERS의 본인 회차 상태도 위 `GET .../participants/me`를 공통 허용합니다.
-출결 대상·상태·입력 시점은 [MVP 기본 출결 규칙](domain-model.md#출결--mvp-기본-구성)을 따릅니다. 체크 사용자·시각은 서버에서 기록하며 미확인으로 되돌리면 비웁니다. 시작 시각에 따른 입력 제한은 두지 않으며 취소 회차의 입력·정정은 차단합니다. 출결이 있는 회차 관계의 재신청은 409로 처리합니다.
-
-## 다음 검토
-
-업무상 미정 정책은 [도메인 문서](domain-model.md#남은-결정-사항)에서만 관리합니다.
-API 후속 작업은 미구현 API의 요청·응답 DTO, 필터·정렬·페이지네이션, 추가 오류 코드 확정입니다. 42 인증 경로는 위 구현 계약을 사용합니다.
+글에 deleted_at이 있으면 일반 목록/상세에서 제외하는 조건을 준비합니다. 글 삭제 API는 후속이며 본인 참가 취소 DELETE는 MVP에 포함합니다.

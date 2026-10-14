@@ -75,3 +75,10 @@ docker compose up -d --wait
 | 성공 뒤 /me가 401 | 같은 브라우저·호스트를 사용하는지, 로컬 HTTP에서 AUTH_COOKIE_SECURE=false인지, 서버가 재시작되지 않았는지 확인합니다. |
 
 배포 환경의 콜백과 로그인 성공 주소는 실제 HTTPS 서비스 주소로 설정합니다. 배포 주소가 확정되면 해당 값을 이 문서에 추가합니다.
+
+## 프론트엔드와 배포 연결
+
+- 프론트엔드 fetch는 `credentials: 'include'`를 사용합니다. 로그인·CSRF·로그아웃 순서는 [인증 API](api-endpoints.md#인증--구현-계약)를 따릅니다.
+- `AUTH_ALLOWED_ORIGINS`에는 정확한 프론트엔드 origin을 설정합니다. HTTPS 배포에서는 `AUTH_COOKIE_SECURE=true`가 필요합니다.
+- 서로 다른 사이트에서 쿠키를 사용할 때는 SameSite=none과 Secure가 필요하며 브라우저의 타사 쿠키 제한도 확인합니다. 가능하면 같은 사이트에 배포합니다.
+- 세션은 서버 메모리에 있어 재시작 시 재로그인이 필요합니다. 다중 서버 운영이 필요하면 공유 세션 저장소를 별도 도입합니다.
