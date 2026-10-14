@@ -68,6 +68,7 @@ Spotless는 Google Java Format AOSP 스타일을 적용하며 빌드 중에는 �
 | --- | --- |
 | 현재 MVP 범위·권한·참가 정책·보류 사항 | [도메인](docs/domain-model.md) |
 | 구현된 API와 새 API 초안 | [API 명세](docs/api-endpoints.md) |
+| 기능별 엔드포인트 구현 순서·DB 작업·완료 조건 | [MVP 구현 계획](docs/mvp-implementation-plan.md) |
 | 실제 DB·관계도·미구현 스키마 | [ERD](docs/erd.md) |
 | 패키지·계층·의존성·DB 운영 규칙 | [아키텍처](docs/architecture.md) |
 | 실제 코드 흐름과 구현 시 확인 사항 | [모듈 가이드](docs/module-development.md) |
