@@ -78,7 +78,7 @@ class EventIntegrationTests {
     @Autowired ActivityParticipationService activityParticipation;
     @Autowired SessionParticipationService sessionParticipation;
     @Autowired PhotoCleanup cleanup;
-    @MockitoBean PhotoStorage storage;
+    @MockitoBean LocalPhotoStorage storage;
     long owner, user, other, admin, club;
     Set<String> files = ConcurrentHashMap.newKeySet();
 

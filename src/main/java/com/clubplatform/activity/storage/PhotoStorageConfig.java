@@ -13,6 +13,9 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 @EnableScheduling
 @EnableConfigurationProperties(PhotoStorageProperties.class)
 public class PhotoStorageConfig {
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            name = "app.photos.mode",
+            havingValue = "s3")
     @Bean(destroyMethod = "close")
     S3Client photoS3Client(PhotoStorageProperties p) {
         return S3Client.builder()
@@ -25,6 +28,9 @@ public class PhotoStorageConfig {
                 .build();
     }
 
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            name = "app.photos.mode",
+            havingValue = "s3")
     @Bean(destroyMethod = "close")
     S3Presigner photoPresigner(PhotoStorageProperties p) {
         return S3Presigner.builder().region(Region.of(p.region())).build();

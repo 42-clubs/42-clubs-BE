@@ -52,6 +52,7 @@ public class SecurityConfig {
                                 authorize
                                         .requestMatchers(
                                                 HttpMethod.GET,
+                                                "/api/v1/photos/activities/*",
                                                 "/api/v1/clubs",
                                                 "/api/v1/clubs/{clubId}",
                                                 "/api/v1/auth/csrf",

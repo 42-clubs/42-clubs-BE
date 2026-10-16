@@ -77,7 +77,7 @@ OAuth 인가 요청은 Spring Security의 기본 서버 세션 저장소를 사�
 ```text
 ActivityController.create → ActivityCreationService.create
   → ClubPermissionService.requireManager, 입력·사진 검증
-  → ImageUploadJournal.reserve [독립 트랜잭션] → S3 업로드
+  → ImageUploadJournal.reserve [독립 트랜잭션] → PhotoStorage 저장(기본 로컬 디스크, 선택 S3)
   → ActivityWriter.create [트랜잭션]
       → 회장·일정 재검증 → 활동·주최자 참가·사진 저장 → 업로드 저널 제거
   → 실패 시 PhotoCleanup.remove, 남은 저널은 주기적 정리 재시도

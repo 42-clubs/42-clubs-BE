@@ -112,11 +112,20 @@ docker compose up -d --wait
 
 | 이름 | 용도 | 기본값 | 필수 조건 | 사용 대상 |
 | --- | --- | --- | --- | --- |
-| PHOTO_S3_BUCKET | 활동 사진 S3 버킷 이름 | 빈 값 | 사진 첨부 시 필수 | 백엔드 |
-| PHOTO_S3_REGION | 버킷 리전 | ap-northeast-2 | 사진 첨부 시 버킷 리전과 일치 | 백엔드 |
-| PHOTO_PUBLIC_BASE_URL | 사진 조회용 HTTPS 기본 URL | 빈 값 | 선택; 공개 이미지 도메인 사용 시 | 백엔드 응답·프론트 이미지 조회 |
+| PHOTO_STORAGE_MODE | 저장 방식 local 또는 s3 | local | 항상; 다른 값은 시작 실패 | 백엔드 |
+| PHOTO_LOCAL_DIRECTORY | 로컬 사진 저장 폴더 | ./data/photos | local 모드; 실행 계정 쓰기 권한 필요 | 백엔드 |
+| PHOTO_LOCAL_BASE_URL | 브라우저에서 접근하는 백엔드 HTTP(S) 기본 주소 | http://localhost:8080 | local 모드; 실제 호스트·포트와 일치 | 백엔드 응답·프론트 이미지 조회 |
+| PHOTO_S3_BUCKET | 활동 사진 S3 버킷 이름 | 빈 값 | s3 모드에서 사진 첨부 시 필수 | 백엔드 |
+| PHOTO_S3_REGION | 버킷 리전 | ap-northeast-2 | s3 모드에서 버킷 리전과 일치 | 백엔드 |
+| PHOTO_PUBLIC_BASE_URL | 사진 조회용 HTTPS 기본 URL | 빈 값 | s3 모드에서 선택; 공개 이미지 도메인 사용 시 | 백엔드 응답·프론트 이미지 조회 |
 
-로컬에서는 기존 S3 버킷 이름·리전을 셸 또는 IDE에 설정합니다. 자격증명은 AWS SDK 기본 자격증명 체인(AWS 프로필·환경변수·배포 실행 역할)을 사용하며 저장소에 비밀값을 기록하지 않습니다. 저장소 미설정이어도 사진 없는 활동 등록은 가능합니다. 사진 첨부는 503 STORAGE_UNAVAILABLE입니다.
+로컬 평가는 별도 환경변수 없이 `./gradlew bootRun`으로 실행합니다. 사진은 실행 작업 디렉터리 기준 `./data/photos`에 자동 생성하며 Git 추적에서 제외합니다. 프론트는 응답의 절대 URL을 그대로 사용합니다. DB 저장이 완료된 미삭제 활동 사진만 비로그인 조회할 수 있습니다. 업로드·DB 실패 파일 정리는 로컬 모드에도 동일하게 적용합니다.
+
+다른 포트·호스트에서 실행할 때 `PHOTO_LOCAL_BASE_URL=http://localhost:8081`처럼 셸 또는 IDE에 설정합니다. 저장 위치는 `PHOTO_LOCAL_DIRECTORY=/절대/경로/photos`로 변경할 수 있습니다. `.env`는 자동으로 읽지 않습니다. 재시작 후에도 같은 디렉터리와 DB를 유지하면 사진이 보존됩니다. 컨테이너 실행 시 해당 디렉터리를 볼륨으로 보존합니다. 이 설정은 사진만 로컬화하며 PostgreSQL·42 로그인 설정은 기존과 같습니다.
+
+기존 S3 사진은 자동으로 로컬로 복사하지 않습니다. 기존 DB를 재사용하려면 `storage_key`와 같은 상대 경로로 파일을 로컬 디렉터리에 복사하거나 기존 S3 모드를 유지해야 합니다. 저장소 변경 시 정리 대기 저널도 기존 저장소에서 처리한 뒤 전환합니다.
+
+S3를 사용할 때만 `PHOTO_STORAGE_MODE=s3`와 기존 S3 버킷 이름·리전을 셸 또는 IDE에 설정합니다. 자격증명은 AWS SDK 기본 자격증명 체인(AWS 프로필·환경변수·배포 실행 역할)을 사용하며 저장소에 비밀값을 기록하지 않습니다. S3 버킷 미설정이어도 사진 없는 활동 등록은 가능합니다. S3 사진 첨부는 버킷 미설정 시 503 STORAGE_UNAVAILABLE입니다. 로컬 모드는 디스크 저장·조회 장애 시 503입니다.
 기본 URL이 없으면 비공개 버킷의 15분 만료 서명 GET URL을 반환합니다. 프론트는 만료 시 활동을 재조회합니다. 기본 URL이 있으면 해당 도메인이 storage_key 경로의 사진을 실제로 제공하도록 배포 환경에서 구성해야 합니다. 버킷 생성·공개 권한 변경은 이 애플리케이션에서 수행하지 않습니다.
 배포 시 HTTPS·저장 암호화를 사용하고 실행 주체에는 해당 버킷 activities/ 경로의 PutObject/GetObject/DeleteObject 권한만 부여합니다. 접근 로그·CloudTrail 데이터 이벤트·CloudWatch 지표 활성화를 권장하며 저장·요청·전송·관측 비용이 발생할 수 있습니다. [S3 모니터링](https://docs.aws.amazon.com/AmazonS3/latest/userguide/monitoring-overview.html), [S3 요금](https://aws.amazon.com/s3/pricing/)을 참고합니다.
 전체 multipart 요청은 27MB, 파일은 5MB로 제한하며 최대 5장입니다. 정리 대기 파일 키는 image_uploads에 먼저 기록하고 성공한 DB 트랜잭션에서 제거합니다. 실패 요청은 즉시 삭제를 시도하고, 삭제 실패 또는 프로세스 중단으로 남은 키는 10분 후부터 1분 간격으로 최대 100건씩 재시도합니다.

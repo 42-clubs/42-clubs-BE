@@ -56,12 +56,12 @@ Spotless는 Google Java Format AOSP 스타일을 적용하며 빌드 중에는 �
 | 인증·내 정보 | 완료: 42경산 OAuth, 세션·CSRF·로그아웃·USER/ADMIN/SUPER_ADMIN 검사; 실제 42 자격증명 연동 확인 필요 |
 | DB 스키마 | V1~V9 구현: 사용자·동아리·권한·부원·공지·활동/사진/참가·소모임/회차/참가·사진 정리 저널·공지 공개 범위·운영 공지 |
 | 역할·회장 권한 기반 | 완료: SUPER_ADMIN의 ADMIN 운영 권한 포함, ACTIVE 동아리별 회장 관계 검사, [초기 DB 입력 절차](docs/initial-data-setup.md); 사용자 검색·SUPER_ADMIN의 ADMIN/회장 권한 관리 API 구현 완료 |
-| 부원·활동·공지·소모임 | 완료: 부원 등록·명단, 동아리 공지 공개 범위·운영 공지, 활동·사진, 소모임·회차, 선착순 참가·취소·기본 출결; 사진 첨부는 [S3 설정](docs/environment-variables.md#활동-사진-저장소) 필요 |
+| 부원·활동·공지·소모임 | 완료: 부원 등록·명단, 동아리 공지 공개 범위·운영 공지, 활동·사진, 소모임·회차, 선착순 참가·취소·기본 출결; 사진 첨부는 기본 로컬 저장, [저장소 설정](docs/environment-variables.md#활동-사진-저장소) 필요 |
 | Swagger/OpenAPI | 미도입: Boot 3.5 호환 springdoc 2.8.x의 패치 버전 결정 필요 |
 | CI·배포 | GitHub Actions CI 미도입; 배포 대상·애플리케이션 컨테이너화·CD 미정 |
 
-[MVP 구현 계획](docs/mvp-implementation-plan.md)의 0~7단계와 업무 API 34개를 구현했습니다. 실제 42 로그인·프론트엔드 연동, 운영 초기 데이터 입력과 S3 버킷·자격증명·이미지 조회 경로 설정은 배포 환경에서 확인해야 합니다.
-사진 저장은 S3를 사용하며 이미지 도메인 또는 만료되는 서명 GET URL을 응답합니다. 사진을 첨부하지 않는 활동 등록은 저장소 설정 없이 가능합니다.
+[MVP 구현 계획](docs/mvp-implementation-plan.md)의 0~7단계와 업무 API 34개를 구현했습니다. 실제 42 로그인·프론트엔드 연동, 운영 초기 데이터 입력과 사진 저장 디렉터리·이미지 조회 주소 설정은 배포 환경에서 확인해야 합니다.
+사진은 기본적으로 `./data/photos`에 저장하며 `http://localhost:8080/api/v1/photos/activities/{filename}`으로 조회합니다. AWS 계정·자격증명 없이 로컬 평가가 가능합니다. 다른 호스트·포트에서는 `PHOTO_LOCAL_BASE_URL`을 변경합니다. S3는 `PHOTO_STORAGE_MODE=s3`로 선택할 수 있습니다.
 메인 운영 공지는 비로그인 공개이며 동아리 공지는 기본 비공개입니다. 공지·활동 상세와 활동 참가·출결 경로는 clubId 아래로 통일했습니다. 기존 경로는 제거했으므로 [전환 계약](docs/api-endpoints.md#공지활동-경로-전환)을 확인합니다.
 글 수정·일정 변경 등 확장은 [후속 설계](docs/future-design.md)에서 확인합니다.
 

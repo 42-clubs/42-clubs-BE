@@ -31,6 +31,9 @@ server:
 
 app:
   photos:
+    mode: ${PHOTO_STORAGE_MODE:local}
+    local-directory: ${PHOTO_LOCAL_DIRECTORY:./data/photos}
+    local-base-url: ${PHOTO_LOCAL_BASE_URL:http://localhost:8080}
     bucket: ${PHOTO_S3_BUCKET:}
     region: ${PHOTO_S3_REGION:ap-northeast-2}
     public-base-url: ${PHOTO_PUBLIC_BASE_URL:}
