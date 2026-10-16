@@ -1,6 +1,6 @@
 # MVP API 연결 예시
 
-정확한 경로·필드·권한·오류는 [API 계약](api-endpoints.md)이 기준입니다. 아래 ID와 날짜는 설명용입니다. 생성 시각은 실제 요청 시점보다 미래로 지정합니다. 변경 요청에는 로그인 세션 쿠키와 현재 CSRF 토큰을 함께 전달합니다.
+정확한 경로·필드·권한·오류는 [API 계약](api-endpoints.md)이 기준입니다. 기능별 전체 엔드포인트는 [부원](api-endpoints.md#동아리-부원-관리) · [공지](api-endpoints.md#공지-작성조회) · [활동](api-endpoints.md#동아리-활동-작성조회) · [활동 참가·출결](api-endpoints.md#활동-참가취소출결) · [소모임·회차](api-endpoints.md#소모임회차-작성조회) · [회차 참가·출결](api-endpoints.md#회차-참가취소출결)에 정리했습니다. 아래 ID와 날짜는 설명용입니다. 생성 시각은 실제 요청 시점보다 미래로 지정합니다. 변경 요청에는 로그인 세션 쿠키와 현재 CSRF 토큰을 함께 전달합니다.
 
 ## 부원 등록·현황·명단
 
@@ -41,7 +41,7 @@ X-CSRF-TOKEN: ...
 
 ## 활동 생성 → 공개 상세 → 참가·출결
 
-사진 유무와 관계없이 multipart입니다. activity 파트의 Content-Type은 application/json으로 지정합니다.
+사진 유무와 관계없이 multipart입니다. activity 파트의 Content-Type은 application/json으로 지정합니다. 브라우저 FormData 전송 시 요청 전체의 Content-Type은 직접 지정하지 않고 브라우저가 boundary와 함께 설정하도록 합니다.
 
 ```text
 POST /api/v1/clubs/1/activities
@@ -88,7 +88,13 @@ X-CSRF-TOKEN: ...
 
 201, `Location: /api/v1/gatherings/30`, `{"gatheringId":30,"sessionId":40}`을 받습니다. 공개 소개는 `GET /api/v1/gatherings/30`, 회차는 `GET /api/v1/gatherings/30/sessions?filter=UPCOMING` 또는 `GET /api/v1/gathering-sessions/40`으로 조회합니다.
 
-다음 회차는 주최자가 `POST /api/v1/gatherings/30/sessions`에 위 session 내부 JSON만 보내 생성합니다. 같은 gatheringId와 새 sessionId를 반환하며 이전 참가자·출결은 복사하지 않습니다.
+다음 회차는 주최자가 `POST /api/v1/gatherings/30/sessions`에 아래 JSON을 보냅니다. session으로 한 번 더 감싸지 않습니다.
+
+```json
+{"startsAt":"2030-05-09T09:00:00+09:00","endsAt":"2030-05-09T11:00:00+09:00","recruitmentClosesAt":"2030-05-09T08:00:00+09:00","location":"캠퍼스","capacity":6}
+```
+
+201·Location과 `{"gatheringId":30,"sessionId":41}`을 반환합니다. 같은 gatheringId에 새 sessionId를 만들며 이전 참가자·출결은 복사하지 않습니다.
 
 회차 참가·취소·본인 상태·명단·출결은 활동과 같은 계약이며 경로만 `/api/v1/gathering-sessions/40/participants`를 사용합니다. 모임 ID 30을 회차 ID 대신 보내지 않습니다.
 
@@ -97,6 +103,13 @@ X-CSRF-TOKEN: ...
 ```json
 {"sessionId":40,"gatheringId":30,"startsAt":"2030-05-02T00:00:00Z","endsAt":"2030-05-02T02:00:00Z","recruitmentOpensAt":"2030-05-01T00:00:00Z","recruitmentClosesAt":"2030-05-01T23:00:00Z","location":"캠퍼스","capacity":6,"currentParticipantCount":1,"remainingCapacity":5,"recruiting":true,"dDay":"D-1","cancelled":false}
 ```
+
+## 프론트 호출 시 공통 처리
+
+- fetch는 인증이 필요한 요청에 `credentials: 'include'`를 지정하고 변경 요청에 현재 CSRF 헤더를 보냅니다. 인증·CSRF 흐름은 [인증 계약](api-endpoints.md#인증--구현-계약)을 따릅니다.
+- JSON 본문이 있는 요청만 `Content-Type: application/json`으로 전송합니다. 참가·취소·부원 등록에는 본문을 보내지 않습니다.
+- 204 응답에는 JSON 본문이 없습니다. 성공 후 상태·인원 표시가 필요하면 본인 상태와 활동/회차 상세를 다시 조회합니다.
+- 회차 목록 filter는 ALL(기본) / UPCOMING / ONGOING / PAST입니다. 전체 목록과 필터 모두 page·size를 사용합니다. 예: `GET /api/v1/gatherings/30/sessions?filter=PAST&page=0&size=20`.
 
 ## 오류 처리
 

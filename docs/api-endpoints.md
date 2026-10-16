@@ -1,6 +1,6 @@
 # API 명세
 
-인증·동아리 조회·사용자 검색·권한 관리와 2~7단계 MVP API를 구현했습니다. 아래 경로·DTO·상태·오류 계약과 [요청·응답 예시](mvp-api-examples.md)를 기준으로 연동합니다.
+인증·동아리 조회·사용자 검색·권한 관리와 2~7단계 MVP API를 구현했습니다. 전체 38개 경로(기존 인증·동아리 조회 7개 + 신규 업무 API 31개)를 아래 표에 정리했습니다. 아래 경로·DTO·상태·오류 계약과 [요청·응답 예시](mvp-api-examples.md)를 기준으로 연동합니다.
 [현재 MVP 정책](domain-model.md#축소-mvp--2026-10-14-확정)과 [후속 API](future-design.md#후속-api-초안)를 구분해 사용합니다.
 
 - [공통 원칙](#공통-원칙)
@@ -8,7 +8,14 @@
 - [인증 — 구현 완료](#인증--구현-계약)
 - [동아리 조회 — 구현 완료](#동아리-공개-조회--구현-계약)
 - [사용자 검색·권한 관리 — 구현 완료](#사용자-검색권한-관리--구현-계약)
-- [최소 MVP 엔드포인트](#mvp-api--구현-계약)
+- [부원 관리 3개](#동아리-부원-관리)
+- [공지 3개](#공지-작성조회)
+- [활동·사진 3개](#동아리-활동-작성조회)
+- [활동 참가·취소·출결 5개](#활동-참가취소출결)
+- [소모임·회차 6개](#소모임회차-작성조회)
+- [회차 참가·취소·출결 5개](#회차-참가취소출결)
+- [페이지·날짜 공통 계약](#dto와-프론트-연동-계약)
+- [참가·출결 DTO와 오류](#활동소모임-구현-계약)
 
 ## 먼저 구현할 순서
 
@@ -35,7 +42,7 @@
 
 ## 공통 원칙
 
-- 업무 API 기본 경로는 `/api/v1`입니다. 인증·기존 조회·권한 관리 표는 전체 경로를, 2~7단계 API 표는 접두사를 생략한 경로를 사용합니다.
+- 업무 API 기본 경로는 `/api/v1`이며 모든 엔드포인트 표에 전체 경로를 표시합니다. OAuth 시작·콜백만 예외입니다.
 - 본인 식별자는 인증 정보로 결정합니다. 신청 요청에서 임의 userId를 받아 다른 사람으로 신청할 수 없습니다.
 - 변경 요청은 세션 쿠키와 CSRF 헤더가 필요합니다. CSRF 토큰 누락·불일치는 403입니다.
 - 운영진은 ADMIN, 동아리 관리자는 해당 ClubManager 관계, 활동·소모임 주최자는 해당 organizer_id로 검사합니다.
@@ -70,7 +77,12 @@
 
 두 API는 로그인 없이 조회할 수 있으며 성공 시 200과 JSON을 반환합니다.
 활동도는 활동 도메인과 [확정된 집계 정책](future-design.md#활동도-계산) 구현 후 추가하며 현재 응답에 포함하지 않습니다.
-생성·수정 API와 개발용 초기 데이터는 아직 없으므로 새 DB의 목록은 비어 있습니다.
+동아리 생성·수정 API와 개발용 초기 데이터는 없으므로 새 DB의 동아리 목록은 비어 있습니다.
+
+| 메서드 | 전체 경로 | 기능 | 권한 | 성공·응답 |
+| --- | --- | --- | --- | --- |
+| GET | /api/v1/clubs | 동아리 목록 | 공개 | 200, 페이지 응답 |
+| GET | /api/v1/clubs/{clubId} | 동아리 상세 | 공개 | 200, ClubDetailResponse |
 
 ### 목록 요청
 
@@ -204,127 +216,294 @@ ADMIN에게는 위 항목의 `role` 필드가 없으며, 회장 목록도 같은
 
 ## MVP API — 구현 계약
 
-아래 경로는 `/api/v1` 접두사를 생략했습니다. 글 생성·조회와 본인 선착순 참가·취소를 제공하며, 글 수정·일정 변경과 나머지 운영 API는 [후속 API](future-design.md#후속-api-초안)에서 별도 관리합니다.
-
-### 동아리 활동·공지
-
-| 메서드 | 경로 | 기능 | 권한 |
-| --- | --- | --- | --- |
-| GET | /clubs/{clubId}/activities | 활동 목록 | 공개 |
-| GET | /activities/{activityId} | 활동 상세 | 공개 |
-| POST | /clubs/{clubId}/activities | 활동 작성·작성자 자동 주최 | ACTIVE인 해당 동아리 ClubManager |
-| POST | /activities/{activityId}/participants | 본인 선착순 참가·재참가 | 로그인 본인 |
-| GET | /activities/{activityId}/participants/me | 본인 참가·출결 상태 | 로그인 본인 |
-| DELETE | /activities/{activityId}/participants/me | 본인 참가 취소 | 로그인 본인, 주최자 제외 |
-| GET | /clubs/{clubId}/notices | 공지 목록 | 공개 |
-| GET | /notices/{noticeId} | 공지 상세 | 공개 |
-| POST | /clubs/{clubId}/notices | 공지 작성 | ACTIVE인 해당 동아리 ClubManager |
-
-USER/ADMIN/SUPER_ADMIN 모두 ClubManager 관계로 작성 권한을 검사합니다. ADMIN/SUPER_ADMIN 역할만으로 공지를 작성할 수 없습니다.
-활동 사진은 아래 [사진 요청·응답 계약](#활동-사진-요청응답-계약)을 따릅니다. 주최자의 타 사용자 수동 참가 등록은 핵심 MVP에서 사용하지 않습니다.
-
-### 소모임
-
-| 메서드 | 경로 | 기능 | 권한 |
-| --- | --- | --- | --- |
-| GET | /gatherings | 소모임 목록 | 공개 |
-| GET | /gatherings/{gatheringId} | 소모임 소개·기본 정보 | 공개 |
-| POST | /gatherings | 모집 글·첫 회차·주최자 참가 함께 생성, FIRST_COME 고정 | 로그인 |
-| GET | /gatherings/{gatheringId}/sessions | 예정·지난 회차 목록 | 공개 |
-| POST | /gatherings/{gatheringId}/sessions | 같은 소모임에 다음 회차 추가·주최자 참가 생성 | 해당 소모임 주최자 |
-| GET | /gathering-sessions/{sessionId} | 회차 상세·모집 상태·잔여 정원 | 공개 |
-| POST | /gathering-sessions/{sessionId}/participants | 본인 선착순 참가·재참가 | 로그인 본인 |
-| GET | /gathering-sessions/{sessionId}/participants/me | 본인 참가·출결 상태 | 로그인 본인 |
-| DELETE | /gathering-sessions/{sessionId}/participants/me | 본인 참가 취소 | 로그인 본인, 주최자 제외 |
-
-POST /gatherings는 첫 회차의 개최·종료·모집 마감 일시·장소·정원을 함께 받아 글·회차·주최자 참가를 원자적으로 생성합니다. 실패하면 모두 롤백합니다.
-POST /gatherings/{gatheringId}/sessions는 새 회차의 일시·장소·정원·모집 마감을 받아 회차와 주최자 참가를 함께 생성합니다. 저장된 organizer_id로 권한을 검사하고 이전 회차의 참가자를 복사하지 않습니다.
-소모임 상세 화면은 기본 정보와 회차 목록을 조합하며 참가·취소·출결은 sessionId 단위입니다. 회차 필터와 페이지네이션은 아래 구현 계약을 따릅니다. 자동 반복·고정 멤버·참가 승인 API는 후속입니다.
+아래 25개 API는 2~7단계에서 구현했습니다. 경로는 `/api/v1`을 포함한 전체 경로입니다. 요청·응답을 연결하는 예시는 [MVP API 연결 예시](mvp-api-examples.md)를 참고합니다. 별도 사진 업로드, 글 수정·삭제, 가입 신청·승인·탈퇴, 자동 반복 회차 API는 제공하지 않습니다.
 
 ### 동아리 부원 관리
 
-| 메서드 | 경로 | 기능 | 권한 |
+| 메서드 | 전체 경로 | 기능 | 권한 | 요청 본문 | 성공·응답 |
+| --- | --- | --- | --- | --- | --- |
+| GET | /api/v1/admin/users/{userId}/clubs | 대상 사용자의 가입 현황 | ADMIN·SUPER_ADMIN | 없음 | 200, MembershipResponse |
+| PUT | /api/v1/admin/clubs/{clubId}/members/{userId} | 부원 등록·재등록 | ADMIN·SUPER_ADMIN, 대상 동아리 ACTIVE | 없음 | 204, 본문 없음 |
+| GET | /api/v1/clubs/{clubId}/members | ACTIVE 부원 명단 | 해당 동아리 ACTIVE 부원 | 없음 | 200, Page&lt;UserSummary&gt; |
+
+- 명단 조회만 page·size를 받으며 사용자 ID 오름차순입니다. 사용자 검색은 기존 `GET /api/v1/admin/users`를 사용합니다.
+- ADMIN·SUPER_ADMIN·회장도 해당 동아리의 ACTIVE 부원 관계가 있어야 명단을 조회할 수 있습니다.
+- ACTIVE 반복 등록은 관계·등록자·가입 시각을 유지합니다. LEFT 재등록은 기존 관계를 갱신합니다. 가입 수에 따른 자동 등록 거절은 없습니다.
+- 없는 사용자·동아리는 404, 비활성 동아리 등록은 409 `CLUB_INACTIVE`입니다.
+
+**MembershipResponse**
+
+| 필드 | JSON 타입 | 의미 |
+| --- | --- | --- |
+| userId | integer | 가입 현황 대상 사용자 ID |
+| clubs | array | ACTIVE 부원 관계의 동아리, 동아리 ID 오름차순; LEFT 관계 제외 |
+| clubs[].id | integer | 동아리 ID |
+| clubs[].name | string | 동아리 이름 |
+| clubs[].operationStatus | string | ACTIVE / ARCHIVED |
+| activeClubCount | integer | clubs 중 운영 상태가 ACTIVE인 동아리 수 |
+
+가입 현황 응답은 페이지네이션하지 않습니다. 부원 명단의 **UserSummary**는 `{id, intraLogin, displayName}`이며 모두 null이 아닌 값입니다. role·이메일·42 고유 ID는 포함하지 않습니다.
+
+### 공지 작성·조회
+
+| 메서드 | 전체 경로 | 기능 | 권한 | 요청 본문 | 성공·응답 |
+| --- | --- | --- | --- | --- | --- |
+| POST | /api/v1/clubs/{clubId}/notices | 공지 작성 | ACTIVE인 해당 동아리 회장 | NoticeRequest JSON | 201, CreatedResponse |
+| GET | /api/v1/clubs/{clubId}/notices | 공지 목록 | 공개 | 없음 | 200, Page&lt;NoticeSummary&gt; |
+| GET | /api/v1/notices/{noticeId} | 공지 상세 | 공개 | 없음 | 200, NoticeResponse |
+
+**NoticeRequest**
+
+| 필드 | JSON 타입 | 필수·검증 |
+| --- | --- | --- |
+| title | string | 필수, 공백만 불가, 최대 200자 |
+| content | string | 필수, 공백만 불가, 최대 50,000자 |
+
+작성자는 세션 사용자로 결정합니다. 생성 응답은 `{"id":10}`이며 `Location: /api/v1/notices/10`을 제공합니다. 목록은 page·size를 받고 createdAt 내림차순 → ID 내림차순으로 정렬합니다.
+
+| 응답 필드 | JSON 타입 | 목록 항목 | 상세 |
 | --- | --- | --- | --- |
-| GET | /admin/users/{userId}/clubs | 현재 가입 동아리·한도 집계 조회 | ADMIN |
-| PUT | /admin/clubs/{clubId}/members/{userId} | 기존 부원 직접 등록·재등록 | ADMIN, 대상 동아리 ACTIVE |
-| GET | /clubs/{clubId}/members | 현재 ACTIVE 부원 명단 | 해당 동아리 ACTIVE 부원 |
+| id | integer | 공지 ID | 동일 |
+| clubId | integer | 소속 동아리 ID | 동일 |
+| title | string | 제목 | 동일 |
+| createdAt | string | UTC ISO 8601 작성 시각 | 동일 |
+| authorId | integer | 필드 없음 | 작성자 사용자 ID |
+| content | string | 필드 없음 | 본문 |
 
-부원 등록 대상 검색은 위 구현된 `/api/v1/admin/users`를 재사용합니다. 별도 본인 가입 신청·승인 대기 API는 만들지 않습니다. 명단 접근은 [회원 정책](domain-model.md#동아리-회원-명단-조회--확정)을 유지합니다. ADMIN·ClubManager만으로 전체 부원 명단을 열람할 수는 없습니다. ADMIN의 사용자 검색 결과는 내부 ID·Intra 로그인명·표시 이름으로 제한합니다. SUPER_ADMIN의 권한 관리용 응답에는 현재 역할을 추가합니다.
+없는 동아리의 목록은 404입니다. 삭제된 공지는 목록에서 제외하고 상세에서 404입니다. 다른 동아리 회장·회장 관계 없는 ADMIN/SUPER_ADMIN의 작성은 403이며 아카이브 동아리에도 작성할 수 없습니다.
 
-### 기본 출결
+### 동아리 활동 작성·조회
 
-| 메서드 | 경로 | 기능 | 권한 |
-| --- | --- | --- | --- |
-| GET | /activities/{activityId}/participants | 참가자·출결 명단 | 해당 활동 주최자 |
-| PATCH | /activities/{activityId}/participants/{userId}/attendance | UNCHECKED / PRESENT 기록 | 해당 활동 주최자 |
-| GET | /gathering-sessions/{sessionId}/participants | 회차 참가자·출결 명단 | 해당 소모임 주최자 |
-| PATCH | /gathering-sessions/{sessionId}/participants/{userId}/attendance | UNCHECKED / PRESENT 기록 | 해당 소모임 주최자 |
+| 메서드 | 전체 경로 | 기능 | 권한 | 요청 본문 | 성공·응답 |
+| --- | --- | --- | --- | --- | --- |
+| POST | /api/v1/clubs/{clubId}/activities | 활동·사진·주최자 참가 생성 | ACTIVE인 해당 동아리 회장 | multipart: activity + 선택 images | 201, CreatedResponse |
+| GET | /api/v1/clubs/{clubId}/activities | 활동 목록 | 공개 | 없음 | 200, Page&lt;ActivityResponse&gt; |
+| GET | /api/v1/activities/{activityId} | 활동 상세 | 공개 | 없음 | 200, ActivityResponse |
 
-체크 사용자·시각은 서버에서 기록합니다. 미확인으로 되돌리면 비우며 본인 출결은 각 participants/me 응답에 포함합니다. 결석·지각 값은 허용하지 않습니다. 글 수정 제외 정책은 출결 기록 API에는 적용하지 않습니다.
+생성 응답은 `{"id":20}`이며 `Location: /api/v1/activities/20`을 제공합니다. authorId·organizerId를 요청받지 않고 작성한 회장을 작성자·주최자로 지정합니다. 활동·주최자의 CONFIRMED 참가·사진 연결은 함께 저장하며 주최자도 정원에 포함됩니다.
 
-### 일정·참가·목록 계약
+**ActivityRequest — activity JSON 파트**
 
-- 활동과 소모임의 모든 회차는 startsAt·recruitmentClosesAt에 오프셋을 포함한 ISO 8601 날짜·시각을 필수로 받습니다. 표시·D-Day의 날짜 기준은 Asia/Seoul이며 모집 마감은 개최보다 이전이어야 합니다.
-- 참가·재참가·취소는 [시각 조건](domain-model.md#일정과-표시)을 검사합니다. 정확히 마감 시각이거나 마감 이후인 참가·취소는 409로 처리합니다.
-- 활동·소모임 목록은 모집 중 우선 → 개최 시각 오름차순 → ID 오름차순으로 정렬합니다. 마감·종료 항목도 뒤쪽에 포함하며 검색 API는 후속입니다. 정렬은 페이지네이션 전에 적용합니다.
-- 글·일정 수정 API는 MVP에 제공하지 않습니다. 기존 동아리 조회와 그 정렬·응답 계약은 유지합니다.
+| 필드 | JSON 타입 | 필수·검증 |
+| --- | --- | --- |
+| title | string | 필수, 공백만 불가, 최대 200자 |
+| content | string | 필수, 공백만 불가, 최대 50,000자 |
+| startsAt | string | 필수, 오프셋 포함 ISO 8601, 생성 시각 이후 |
+| recruitmentClosesAt | string | 필수, 오프셋 포함 ISO 8601, 생성 시각 이후·startsAt 이전 |
+| capacity | integer | 필수, 1~2,147,483,647, 주최자 포함 |
+
+**ActivityResponse**
+
+| 필드 | JSON 타입 | 의미·목록과 상세 차이 |
+| --- | --- | --- |
+| id | integer | 활동 ID |
+| clubId | integer | 소속 동아리 ID |
+| organizerId | integer | 주최자 사용자 ID |
+| title | string | 제목 |
+| content | string 또는 null | 목록은 null, 상세는 본문 |
+| startsAt | string | UTC ISO 8601 개최 시각 |
+| recruitmentClosesAt | string | UTC ISO 8601 모집 마감 시각 |
+| capacity | integer | 주최자 포함 전체 정원 |
+| currentParticipantCount | integer | CONFIRMED 참가 수, 주최자 포함 |
+| remainingCapacity | integer | 잔여 정원, 최소 0 |
+| recruiting | boolean | 마감·개최 전이며 잔여 정원이 있으면 true |
+| dDay | string | 한국 날짜 기준 D-N / D-Day / 종료 |
+| representativeImageUrl | string 또는 null | 첫 첨부 사진 URL, 사진 없으면 null |
+| images | array | 목록은 항상 [], 상세는 첨부 순서의 사진 |
+| images[].url | string | 프론트에서 조회할 이미지 URL |
+| images[].sortOrder | integer | 0부터 시작하는 첨부 순서 |
+
+목록은 page·size를 받고 모집 중 우선 → startsAt 오름차순 → ID 오름차순으로 정렬한 뒤 페이지네이션합니다. 마감·종료 활동도 뒤에 표시합니다. 없는 동아리의 목록은 404이며 삭제된 활동은 목록에서 제외하고 상세에서 404입니다. 공개 응답에는 참가 명단·출결을 포함하지 않습니다.
 
 ### 활동 사진 요청·응답 계약
 
-아래는 구현된 활동 API의 계약입니다. 개수·용량·형식·실패 처리의 기준은 [활동 사진 정책](domain-model.md#활동-사진--확정)입니다.
+- 사진 유무와 관계없이 `multipart/form-data`를 사용합니다. `activity` 파트의 Content-Type은 `application/json`입니다. `images` 파일 파트를 첨부 순서대로 반복 전달하며, 사진이 없으면 해당 파트를 생략합니다.
+- 최대 5장, 파일당 5MB(5,242,880바이트), 전체 multipart 요청 27MB입니다. JPEG·PNG·WebP만 허용하며 실제 형식·디코딩 가능 여부를 검사합니다. 최대 픽셀 수는 25,000,000입니다. 빈 파일은 첨부 없음으로 취급하지 않고 400입니다.
+- 첫 사진을 대표 이미지로 사용합니다. 사진이 없으면 representativeImageUrl=null, 상세 images=[]이며 프론트가 공통 기본 이미지를 표시합니다. 기본 이미지를 첨부 목록에 넣지 않습니다.
+- 사진은 백엔드가 별도 S3 저장소에 업로드합니다. 프론트는 응답 URL을 img src로 사용하며 저장소 키로 URL을 조합하지 않습니다. URL·배포 설정은 [활동 사진 저장소](environment-variables.md#활동-사진-저장소)를 따릅니다.
+- 이미지 기본 URL이 설정되면 해당 주소를 사용하고, 없으면 15분 만료 서명 GET URL을 제공합니다. 만료 시 활동을 재조회합니다. 사진 없는 등록은 저장소 설정 없이 가능합니다.
+- 회장 권한·활동 입력 검증 후 사진을 검사하며 인증·CSRF도 적용합니다. 사진 하나라도 검증·업로드·DB 저장에 실패하면 활동 등록 전체를 실패 처리하고 해당 요청의 파일을 정리합니다. 정리 실패는 DB 저널로 재시도합니다.
+- 형식·개수·손상·빈 파일·픽셀 제한 오류는 400 `INVALID_REQUEST`, 용량 초과는 413 `PAYLOAD_TOO_LARGE`, 저장소 미설정·장애는 503 `STORAGE_UNAVAILABLE`입니다.
 
-- `POST /api/v1/clubs/{clubId}/activities`는 사진 유무와 관계없이 `multipart/form-data`로 받습니다. `activity` 파트는 `application/json` 활동 정보이고, 선택적인 `images` 파트에 첨부 순서대로 파일을 반복 전달합니다. 사진이 없으면 `images` 파트를 생략합니다. 빈 파일 파트는 사진 없음으로 취급하지 않고 검증 오류로 처리합니다.
-- 활동 목록에는 `representativeImageUrl`을 제공합니다. 사진이 없으면 `null`이며 프론트엔드가 공통 기본 이미지를 표시합니다.
-- 상세에는 같은 대표 이미지 필드와 첨부 순서의 `images` 배열을 제공합니다. 배열 항목은 `url`·`sortOrder`를 가지며, 사진이 없으면 빈 배열입니다. 기본 이미지 URL을 실제 첨부 목록에 넣지 않습니다.
-- `representativeImageUrl`과 `images[].url`은 별도 파일 저장소의 사진을 프론트엔드에서 조회·표시할 수 있는 이미지 URL입니다. 백엔드는 DB의 `storage_key`를 바탕으로 URL을 구성하여 응답하며, 프론트엔드에 저장소 키로 URL을 조합하도록 요구하지 않습니다. S3 버킷·리전·이미지 기본 URL 설정과 서명 URL 동작은 [환경변수](environment-variables.md#활동-사진-저장소)를 따릅니다.
-- 파일 검증은 해당 동아리 회장 권한과 활동 입력 검증 후 수행합니다. 기존 세션 인증·CSRF 검사를 적용하며 파일 업로드를 이유로 예외 처리하지 않습니다.
-- 허용 개수 초과·빈 파일·지원하지 않거나 손상된 이미지는 400, 파일 또는 요청 용량 제한 초과는 413으로 처리합니다. 전체 요청은 multipart 오버헤드를 포함해 27MB이며 저장소 장애는 503 STORAGE_UNAVAILABLE입니다.
+### 활동 참가·취소·출결
+
+| 메서드 | 전체 경로 | 기능 | 권한 | 요청 본문 | 성공·응답 |
+| --- | --- | --- | --- | --- | --- |
+| POST | /api/v1/activities/{activityId}/participants | 본인 참가·재참가 | 로그인 본인 | 없음 | 204, 본문 없음 |
+| DELETE | /api/v1/activities/{activityId}/participants/me | 본인 참가 취소 | 로그인 본인, 주최자 제외 | 없음 | 204, 본문 없음 |
+| GET | /api/v1/activities/{activityId}/participants/me | 본인 참가·출결 상태 | 로그인 본인 | 없음 | 200, ParticipationResponse |
+| GET | /api/v1/activities/{activityId}/participants | 참가자·출결 명단 | 해당 활동 주최자 | 없음 | 200, Page&lt;ParticipantResponse&gt; |
+| PATCH | /api/v1/activities/{activityId}/participants/{userId}/attendance | 참가자 출결 기록 | 해당 활동 주최자 | AttendanceRequest JSON | 204, 본문 없음 |
+
+명단만 page·size를 받습니다. 요청·상태 전이·응답 필드·오류는 아래 [참가·출결 공통 계약](#활동소모임-구현-계약)을 따릅니다. 활동의 다른 회장·ADMIN·SUPER_ADMIN도 주최자가 아니면 명단·출결에 접근할 수 없습니다.
+
+### 소모임·회차 작성·조회
+
+| 메서드 | 전체 경로 | 기능 | 권한 | 요청 본문 | 성공·응답 |
+| --- | --- | --- | --- | --- | --- |
+| POST | /api/v1/gatherings | 소모임·첫 회차·주최자 참가 생성 | 로그인 | GatheringRequest JSON | 201, GatheringCreated |
+| GET | /api/v1/gatherings | 대표 회차를 포함한 소모임 목록 | 공개 | 없음 | 200, Page&lt;GatheringResponse&gt; |
+| GET | /api/v1/gatherings/{gatheringId} | 소모임 소개·기본 정보 | 공개 | 없음 | 200, GatheringResponse |
+| POST | /api/v1/gatherings/{gatheringId}/sessions | 다음 회차·주최자 참가 생성 | 해당 소모임 주최자 | SessionRequest JSON | 201, GatheringCreated |
+| GET | /api/v1/gatherings/{gatheringId}/sessions | 회차 목록 | 공개 | 없음 | 200, Page&lt;SessionResponse&gt; |
+| GET | /api/v1/gathering-sessions/{sessionId} | 회차 상세 | 공개 | 없음 | 200, SessionResponse |
+
+**GatheringRequest**
+
+| 필드 | JSON 타입 | 필수·검증 |
+| --- | --- | --- |
+| title | string | 필수, 공백만 불가, 최대 200자 |
+| content | string | 필수, 공백만 불가, 최대 50,000자 |
+| session | object | 필수, 아래 SessionRequest 전체 |
+
+**SessionRequest — 첫 회차와 다음 회차에 공통 사용**
+
+| 필드 | JSON 타입 | 필수·검증 |
+| --- | --- | --- |
+| startsAt | string | 필수, 오프셋 포함 ISO 8601, 생성 시각에서 최소 2시간 이후 |
+| endsAt | string | 필수, 오프셋 포함 ISO 8601, startsAt 이후 |
+| recruitmentClosesAt | string | 필수, 오프셋 포함 ISO 8601, 생성 시각 이후·startsAt 이전 |
+| location | string | 필수, 공백만 불가, 최대 255자 |
+| capacity | integer | 필수, 1~2,147,483,647, 주최자 포함 |
+
+모집 공개는 회차 생성 즉시입니다. recruitmentOpensAt·organizerId는 서버가 결정하며 요청 필드가 아닙니다. 다음 회차 생성에는 session으로 감싸지 않은 SessionRequest JSON을 보냅니다. 이전 참가자·출결은 복사하지 않으며 각 회차에 주최자만 자동 참가합니다. 생성 중 실패하면 모임·회차·주최자 참가가 일부만 남지 않도록 롤백합니다.
+
+**GatheringCreated**는 `{"gatheringId":30,"sessionId":40}`입니다. 소모임 생성의 Location은 `/api/v1/gatherings/30`, 다음 회차 생성의 Location은 `/api/v1/gathering-sessions/40`입니다.
+
+**GatheringResponse**
+
+| 필드 | JSON 타입 | 목록 | 상세 |
+| --- | --- | --- | --- |
+| id | integer | 소모임 ID | 동일 |
+| organizerId | integer | 주최자 사용자 ID | 동일 |
+| title | string | 제목 | 동일 |
+| content | string 또는 null | null | 본문 |
+| representativeImageUrl | null | 프론트 공통 기본 이미지 사용 | 동일 |
+| representativeSession | object 또는 null | 대표 회차의 SessionResponse | null; 회차 목록을 별도 조회 |
+
+소모임 목록은 page·size를 받습니다. 대표 회차는 취소되지 않은 회차 중 진행 중(가장 이른 시작) → 가장 가까운 예정 → 가장 최근 지난 회차 순입니다. 목록은 대표 회차의 모집 중 우선 → startsAt 오름차순 → 소모임 ID 오름차순입니다. 대표할 미취소 회차가 없는 모임은 목록에서 제외합니다. 삭제된 모임은 목록에서 제외하고 상세·하위 회차·참가·출결 접근에서 404입니다.
+
+**회차 목록 쿼리**
+
+| 매개변수 | 기본값 | 의미·정렬 |
+| --- | --- | --- |
+| page / size | 0 / 20 | 공통 페이지 범위 적용 |
+| filter | ALL | ALL / UPCOMING / ONGOING / PAST만 허용; 빈 값은 기본값 |
+| filter=ALL | — | 전체 회차, startsAt → ID 오름차순 |
+| filter=UPCOMING | — | 현재 시각 < startsAt, startsAt → ID 오름차순 |
+| filter=ONGOING | — | startsAt <= 현재 시각 < endsAt, startsAt → ID 오름차순 |
+| filter=PAST | — | endsAt <= 현재 시각, startsAt → ID 내림차순 |
+
+회차 목록·상세는 취소된 회차도 cancelled=true로 반환합니다. 취소 API는 현재 제공하지 않습니다. 없는 소모임의 회차 목록은 404입니다.
+
+**SessionResponse**
+
+| 필드 | JSON 타입 | 의미 |
+| --- | --- | --- |
+| sessionId | integer | 회차 ID; 참가·출결 요청에 사용 |
+| gatheringId | integer | 소속 소모임 ID |
+| startsAt / endsAt | string | UTC ISO 8601 개최·종료 시각 |
+| recruitmentOpensAt | string | UTC ISO 8601 공개 시각, 회차 생성 시각 |
+| recruitmentClosesAt | string | UTC ISO 8601 모집 마감 시각 |
+| location | string | 장소 |
+| capacity | integer | 주최자 포함 전체 정원 |
+| currentParticipantCount / remainingCapacity | integer | CONFIRMED 참가 수 / 잔여 정원 |
+| recruiting | boolean | 미취소이고 공개 시각 이상·마감 및 개최 전이며 잔여 정원이 있으면 true |
+| dDay | string | 한국 날짜 기준 D-N / D-Day / 종료 |
+| cancelled | boolean | 회차 취소 여부 |
+
+### 회차 참가·취소·출결
+
+| 메서드 | 전체 경로 | 기능 | 권한 | 요청 본문 | 성공·응답 |
+| --- | --- | --- | --- | --- | --- |
+| POST | /api/v1/gathering-sessions/{sessionId}/participants | 본인 참가·재참가 | 로그인 본인 | 없음 | 204, 본문 없음 |
+| DELETE | /api/v1/gathering-sessions/{sessionId}/participants/me | 본인 참가 취소 | 로그인 본인, 주최자 제외 | 없음 | 204, 본문 없음 |
+| GET | /api/v1/gathering-sessions/{sessionId}/participants/me | 본인 참가·출결 상태 | 로그인 본인 | 없음 | 200, ParticipationResponse |
+| GET | /api/v1/gathering-sessions/{sessionId}/participants | 참가자·출결 명단 | 해당 소모임 주최자 | 없음 | 200, Page&lt;ParticipantResponse&gt; |
+| PATCH | /api/v1/gathering-sessions/{sessionId}/participants/{userId}/attendance | 참가자 출결 기록 | 해당 소모임 주최자 | AttendanceRequest JSON | 204, 본문 없음 |
+
+명단만 page·size를 받습니다. 아래 공통 계약을 회차별로 적용하며 같은 사용자도 여러 회차에 독립적으로 참가합니다. 한 회차의 취소·출결은 다른 회차에 영향을 주지 않습니다. sessionId를 사용하는 경로에 gatheringId를 대신 보내지 않습니다.
 
 ## DTO와 프론트 연동 계약
 
-### 요청·응답 최소 구성
+위 표의 `Page<T>`는 실제 JSON에서 아래 구조이며 content 항목이 해당 DTO입니다. 모든 경로 ID는 1 이상의 Java long 범위 정수입니다. 잘못된 숫자·범위·필터·본문은 400입니다.
 
-아래 표는 기능별 구성을 요약합니다. 정확한 필드·성공 상태·오류 코드는 뒤의 2·3단계 및 활동·소모임 구현 계약을 따릅니다.
-
-| 기능 | 요청에 필요한 정보 | 응답에 필요한 정보 |
+| 공통 필드 | JSON 타입 | 의미 |
 | --- | --- | --- |
-| 공지 작성·상세 | 작성: 제목·본문, clubId는 경로에서 결정 | 공지 ID·동아리 ID·제목·본문·작성 시각 |
-| 활동 작성·상세 | 작성: 제목·본문·개최 일시·모집 마감 일시·정원 + 선택 사진, multipart 구성은 위 계약 참조 | 활동 ID·내용·대표 이미지·사진·개최/마감 일시·정원·현재 참가 수·모집 상태 |
-| 소모임 생성 | 제목·본문 + 첫 회차의 개최/종료/마감 일시·장소·정원, 주최자는 인증 정보에서 결정 | gatheringId·첫 sessionId; 상세에서는 소개·주최자 표시 정보 |
-| 다음 회차 생성·회차 상세 | 생성: 개최/종료/마감 일시·장소·정원 | sessionId·gatheringId·일정·장소·정원·현재 참가 수·모집 상태 |
-| 본인 참가·취소 | 경로의 활동/회차 ID, 사용자 ID는 요청받지 않음 | 처리 결과; 본인 상태 조회에서 참가 상태·출결 확인 |
-| 주최자 참가자 조회 | 경로의 활동/회차 ID, 페이지 정보 | 참가자 식별자·표시 이름·참가 상태·출결·최종 체크 정보 |
-| 출결 기록 | `{"attendanceStatus":"PRESENT"}` 또는 `{"attendanceStatus":"UNCHECKED"}` | 변경된 출결 또는 본문 없는 성공 응답; 체크 사용자·시각은 서버 결정 |
-| 부원 등록·현황·명단 | 등록: 경로의 clubId·userId, 검색: intraLogin | 등록 결과; 현황: 현재 가입 동아리·개수; 명단: ACTIVE 부원 식별자·표시 이름 |
+| content | array | 요청 페이지 항목, 없으면 [] |
+| page | integer | 요청 페이지, 기본 0, 허용 0~2,147,483,647 |
+| size | integer | 페이지 크기, 기본 20, 허용 1~100 |
+| totalElements | integer | 필터 적용 후 전체 항목 수 |
+| totalPages | integer | 전체 페이지 수 |
 
-참가 생성은 선착순 정원 검사와 관계 저장을 하나의 트랜잭션으로 처리합니다. 중복 요청·동시 신청에도 같은 사용자의 중복 참가와 정원 초과를 막아야 합니다. 부원 등록은 PUT의 반복 요청으로 중복 관계를 만들지 않습니다.
+빈 page·size는 기본값으로 처리하며 페이지를 벗어나도 200·빈 content입니다. 크기 초과를 자동 축소하지 않습니다. 사용자 지정 sort·검색은 새 25개 API에서 지원하지 않습니다. 요청 시각은 `2030-05-02T09:00:00+09:00`처럼 오프셋을 포함하고, 시각 응답은 UTC ISO 8601입니다. dDay는 Asia/Seoul 날짜 차이이며 개최 당일은 D-Day, 개최일이 지난 뒤에는 종료입니다. 당일 개최 시각 경과만으로 종료로 바꾸지 않습니다.
 
-### 프론트 연결 시 확인할 항목
-
-- [요청·응답 예시](mvp-api-examples.md)로 생성 → 상세 → 참가·출결 연결을 확인합니다.
-- 기본 이미지는 프론트 공통 자산을 사용합니다. 실제 S3 버킷·자격증명·이미지 도메인은 환경별로 설정하고 URL 조회를 확인합니다.
-- 서명 이미지 URL이 만료되면 활동을 다시 조회해 URL을 갱신합니다.
-- 참가자 명단은 공개 응답에서 제외하며 본인 상태와 주최자 관리 조회를 구분합니다.
-
-글에 deleted_at이 있으면 일반 목록/상세에서 제외하는 조건을 준비합니다. 글 삭제 API는 후속이며 본인 참가 취소 DELETE는 MVP에 포함합니다.
-
-## 2·3단계 구현 계약
-
-- 부원 등록 PUT은 본문 없이 204를 반환하며 반복 등록은 기존 등록 정보도 유지합니다. LEFT 재등록만 등록자·가입 시각을 갱신합니다.
-- 가입 현황 GET은 `{userId, clubs: [{id, name, operationStatus}], activeClubCount}`를 반환합니다. LEFT는 제외하고 ACTIVE 동아리만 activeClubCount에 포함합니다.
-- 부원 명단 GET은 page=0, size=20(최대 100), 사용자 ID 오름차순이며 `{content: [{id, intraLogin, displayName}], page, size, totalElements, totalPages}`를 반환합니다.
-- 공지 생성은 `{title, content}`를 받고 201·Location과 `{id}`를 반환합니다. 제목 1~200자, 본문 1~50,000자이며 공백만 있는 값은 거절합니다.
-- 공지 목록은 page=0, size=20(최대 100), 생성 시각 내림차순·ID 내림차순이며 `{content: [{id, clubId, title, createdAt}], page, size, totalElements, totalPages}`입니다. 상세는 content·authorId를 추가합니다.
-- 없는 리소스는 404, 권한 부족은 403, 비활성 동아리의 부원 등록은 409 `CLUB_INACTIVE`, 입력 오류는 400입니다. 공지 목록·상세는 비로그인 공개이며 삭제된 공지는 제외합니다.
+- 인증은 서버 세션이며 변경 요청에는 CSRF 토큰을 보냅니다. 204에는 JSON 본문이 없으므로 프론트에서 response.json()을 호출하지 않습니다.
+- ADMIN 운영 기능은 SUPER_ADMIN도 사용하지만 부원·회장·주최자 관계는 우회하지 않습니다.
+- 사진 URL은 별도 저장소의 이미지 조회 주소입니다. 프론트의 기본 이미지·만료 URL 갱신을 [연결 예시](mvp-api-examples.md)와 함께 구현합니다.
 
 ## 활동·소모임 구현 계약
 
-- 활동 생성 multipart의 activity JSON은 `{title, content, startsAt, recruitmentClosesAt, capacity}`입니다. 제목 최대 200자, 본문 최대 50,000자, 정원 1 이상입니다. 시각은 오프셋을 포함한 ISO 8601이며 생성 시점 이후여야 합니다. 201·Location·`{id}`를 반환합니다.
-- 활동 목록은 page=0, size=20(최대 100)이며 모집 중 우선·개최 시각·ID 오름차순입니다. 상세는 목록 정보에 본문·사진 배열을 추가합니다. 인원 필드는 capacity/currentParticipantCount/remainingCapacity, 시각 필드는 startsAt/recruitmentClosesAt, 상태는 recruiting, dDay는 D-N/D-Day/종료입니다.
-- 소모임 생성 JSON은 `{title, content, session: {startsAt, endsAt, recruitmentClosesAt, location, capacity}}`, 다음 회차 생성은 session 내부 필드만 받습니다. 장소는 공백 불가·최대 255자입니다. 생성은 201·Location·`{gatheringId, sessionId}`를 반환합니다.
-- 소모임 목록은 대표 회차를 representativeSession으로 제공하고 상세는 소개·organizerId를 제공합니다. 기본 이미지는 representativeImageUrl=null이며 프론트 공통 자산을 사용합니다. 회차에는 gatheringId·sessionId·일정·장소·인원·recruiting·dDay를 제공합니다. 회차 목록 filter는 UPCOMING/ONGOING/PAST 또는 생략이며 정렬 기준은 도메인을 따릅니다. 모든 목록은 동일한 페이지 응답을 사용합니다.
-- 참가 POST·취소 DELETE·출결 PATCH는 204입니다. 본인 상태 GET은 `{status, attendanceStatus}`이며 미참가는 둘 다 null입니다. 명단은 사용자 ID 오름차순 페이지이며 `{userId, intraLogin, displayName, status, attendanceStatus, attendanceCheckedBy, attendanceCheckedAt}`를 반환합니다. CANCELLED도 명단에 포함합니다.
-- 참가·취소는 인증 사용자 본인만 처리합니다. 출결 PATCH 본문은 `{attendanceStatus: PRESENT|UNCHECKED}`이며 CONFIRMED만 처리합니다. 중복 참가·이미 취소는 409, 미참가 취소·출결 대상 없음은 404입니다.
-- 충돌 코드는 RECRUITMENT_CLOSED(미공개·마감), CAPACITY_FULL, ALREADY_JOINED, ALREADY_CANCELLED, ORGANIZER_CANNOT_CANCEL, ATTENDANCE_RECORDED, PARTICIPANT_NOT_CONFIRMED입니다. 삭제된 글과 그 하위 회차는 모든 조회·참가·출결에서 404입니다.
-- 사진 파일 제한 초과는 413 `PAYLOAD_TOO_LARGE`, 검증 실패는 400 `INVALID_REQUEST`, 저장소 미설정·장애는 503 `STORAGE_UNAVAILABLE`입니다. 전체 multipart 요청 한도는 27MB이며 파일당 5MB입니다. 이미지 픽셀 수는 디코딩 자원 보호를 위해 최대 25,000,000으로 제한합니다.
-- 사진은 S3에 저장하며 공개 이미지 기본 URL이 설정되면 해당 URL을 사용하고, 없으면 15분 만료의 서명 GET URL을 제공합니다. URL은 저장하지 않으며 만료 후 활동을 재조회합니다. 버킷 공개 권한 변경이나 버킷 생성은 애플리케이션이 수행하지 않습니다.
+### 본인 상태·참가자·출결 DTO
+
+**ParticipationResponse**
+
+| 필드 | JSON 타입 | 값 |
+| --- | --- | --- |
+| status | string 또는 null | CONFIRMED / CANCELLED; 미참가는 null |
+| attendanceStatus | string 또는 null | UNCHECKED / PRESENT; 미참가는 null |
+
+참가 관계가 없는 사용자의 본인 조회도 200과 `{"status":null,"attendanceStatus":null}`입니다. 활동·회차 자체가 없거나 삭제된 경우는 404입니다.
+
+**ParticipantResponse — 주최자 명단 content 항목**
+
+| 필드 | JSON 타입 | 값 |
+| --- | --- | --- |
+| userId | integer | 참가자 사용자 ID |
+| intraLogin | string | Intra 로그인명 |
+| displayName | string | 표시 이름 |
+| status | string | CONFIRMED / CANCELLED |
+| attendanceStatus | string | UNCHECKED / PRESENT |
+| attendanceCheckedBy | integer 또는 null | 마지막 체크 주최자 ID; UNCHECKED이면 null |
+| attendanceCheckedAt | string 또는 null | UTC ISO 8601 마지막 체크 시각; UNCHECKED이면 null |
+
+명단은 사용자 ID 오름차순이며 주최자와 CANCELLED 관계도 포함합니다. 공개 목록·상세나 부원 명단에 이 DTO를 노출하지 않습니다.
+
+**AttendanceRequest**는 필수 문자열 attendanceStatus 하나를 받습니다.
+
+```json
+{"attendanceStatus":"PRESENT"}
+```
+
+UNCHECKED로 되돌리면 체크 사용자·시각을 비웁니다. PRESENT 기록자는 인증된 주최자로 서버가 결정합니다. CONFIRMED 참가자만 변경할 수 있고 주최자 자신의 출결도 기록할 수 있습니다. 출결 입력의 개최 전·후 시각 제한은 없습니다. 취소된 회차에는 기록할 수 없습니다.
+
+### 참가·취소 상태 전이
+
+- 참가·재참가·본인 취소는 모두 마감·개최 전만 가능합니다. 회차는 공개 시각 이상·미취소 조건도 검사합니다. 정확히 마감 시각부터 참가·취소 모두 409입니다.
+- 참가자는 요청 본문이 아닌 세션 사용자입니다. 처음 참가하면 CONFIRMED·UNCHECKED, 취소하면 CANCELLED, 재참가하면 기존 행을 CONFIRMED로 갱신합니다.
+- 이미 CONFIRMED인 중복 참가와 이미 CANCELLED인 취소는 409입니다. 참가하지 않은 사용자의 취소는 404입니다. 주최자는 취소할 수 없습니다.
+- PRESENT 관계의 취소·재참가는 거절하며 출결을 임의로 초기화하지 않습니다. 주최자가 UNCHECKED로 되돌린 뒤 정상 시각·정원 조건에서 처리합니다.
+- 활동·회차별 잠금으로 동시 요청에도 정원과 사용자별 관계 하나를 보장합니다. 정원이 찼으면 409이며 대기열·승인제·타인 수동 등록은 없습니다.
+
+### 오류 코드
+
+오류 본문은 `{code, message}`입니다. 프론트는 HTTP 상태와 code를 기준으로 처리하며 message는 사용자 안내입니다.
+
+| HTTP | code | 조건 |
+| --- | --- | --- |
+| 400 | INVALID_REQUEST | ID·페이지·필터·필수 필드·문자열 길이·일정·정원·출결 값·사진 검증 오류 |
+| 401 | UNAUTHENTICATED | 보호 API의 세션 인증 없음 |
+| 403 | ACCESS_DENIED | 역할·회장·부원·주최자 권한 부족 또는 CSRF 누락·불일치 |
+| 404 | RESOURCE_NOT_FOUND | 없는 사용자·동아리·글·회차·필요한 참가 관계; 삭제된 글 또는 삭제된 모임 하위 회차 |
+| 409 | CLUB_INACTIVE | 아카이브 동아리의 부원 등록·재등록 |
+| 409 | RECRUITMENT_CLOSED | 참가·취소의 미공개·마감·개최 시각 도달, 취소 회차의 참가·취소·출결 |
+| 409 | CAPACITY_FULL | 참가·재참가 시 잔여 정원 없음 |
+| 409 | ALREADY_JOINED | 이미 CONFIRMED인 사용자의 참가 |
+| 409 | ALREADY_CANCELLED | 이미 CANCELLED인 사용자의 취소 |
+| 409 | ORGANIZER_CANNOT_CANCEL | 주최자의 본인 참가 취소 |
+| 409 | ATTENDANCE_RECORDED | 출결이 기록된 관계의 취소·재참가 |
+| 409 | PARTICIPANT_NOT_CONFIRMED | CANCELLED 참가자에 대한 출결 기록 |
+| 413 | PAYLOAD_TOO_LARGE | 사진 파일 또는 전체 multipart 요청 용량 초과 |
+| 503 | STORAGE_UNAVAILABLE | 사진 첨부 시 저장소 미설정·업로드 장애·이미지 URL 생성 실패 등 |
+
+인증 없이 CSRF도 빠진 변경 요청은 인증보다 CSRF 검사에 의해 403일 수 있습니다. 여러 충돌 조건을 동시에 만족하면 먼저 검사한 조건의 오류가 반환됩니다. 예를 들어 마감 후 중복 참가·취소는 모집 마감 오류가 우선합니다. 기존 권한 관리의 `SUPER_ADMIN_ROLE_PROTECTED`는 해당 권한 관리 계약을 따릅니다.
