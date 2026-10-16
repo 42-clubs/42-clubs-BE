@@ -1,7 +1,7 @@
 # 데이터 모델과 ERD
 
 실제 DB에는 `users`([V1](../src/main/resources/db/migration/V1__create_users.sql))와 `clubs`([V2](../src/main/resources/db/migration/V2__create_clubs.sql)), `club_managers`([V3](../src/main/resources/db/migration/V3__add_super_admin_and_club_managers.sql))가 있습니다. V3는 users.role CHECK에도 SUPER_ADMIN을 추가합니다.
-아래 나머지 테이블은 [현재 MVP](domain-model.md#축소-mvp--2026-10-14-확정)를 위한 미구현 설계 초안입니다. 부원·기본 출결은 아래 MVP 설계에 포함하고 참가 승인제·고정 멤버는 [후속 스키마](future-design.md#후속-스키마)에 분리합니다.
+club_members(V4)·notices(V5)도 구현했습니다. 아래 나머지 테이블은 [현재 MVP](domain-model.md#축소-mvp--2026-10-14-확정)를 위한 미구현 설계 초안입니다. 부원·기본 출결은 아래 MVP 설계에 포함하고 참가 승인제·고정 멤버는 [후속 스키마](future-design.md#후속-스키마)에 분리합니다.
 
 - [관계도](#관계도) · [공통 규칙](#공통-규칙)
 - 구현됨: [users](#users) · [clubs](#clubs) · [관리 권한](#club_managers)
@@ -123,7 +123,7 @@ V3로 구현되었습니다. 동아리별 조회용 INDEX(club_id)도 적용했�
 - 가입 한도는 회원 status와 동아리 operation_status를 함께 조회해 계산하며 별도 집계 컬럼을 두지 않습니다. LEFT 행은 현재 가입 목록·한도에서 제외하며 DB에는 보존합니다. 집계 기준은 [가입 한도 정책](domain-model.md#동아리-가입-한도--확정)을 따릅니다.
 - approved_by의 ADMIN 권한은 가입 등록·재가입 유스케이스에서 검증합니다. FK만으로 등록 권한을 판단하지 않습니다.
 - 본인 탈퇴 신청·승인 및 개별 탈퇴 처리는 [추후 확장](future-design.md#동아리-탈퇴-신청승인--추후-확장)이며 MVP에 신청 테이블·대기 상태를 추가하지 않습니다. LEFT와 left_at은 아카이브 일괄 처리에 사용합니다.
-- 현재 미구현이며 향후 해당 테이블 최초 마이그레이션에 포함합니다. 가입 수를 강제 제한하는 DB 제약은 도입하지 않습니다. 업무 기준은 [가입 관계 정책](domain-model.md#동아리-가입-관계--확정)을 따릅니다.
+- V4에 구현했습니다. 가입 수를 강제 제한하는 DB 제약은 도입하지 않습니다. 업무 기준은 [가입 관계 정책](domain-model.md#동아리-가입-관계--확정)을 따릅니다.
 
 ## activities
 
@@ -158,7 +158,7 @@ V3로 구현되었습니다. 동아리별 조회용 INDEX(club_id)도 적용했�
 | updated_at | TIMESTAMPTZ | O | 수정 시각 |
 | deleted_at | TIMESTAMPTZ | X | NULL이면 미삭제, 값이 있으면 논리 삭제 시각 |
 
-작성 권한은 현재 club_managers 관계로 검사합니다. deleted_at은 최초 마이그레이션에 포함할 예정이며 삭제 실행은 후속입니다.
+작성 권한은 현재 club_managers 관계로 검사합니다. deleted_at은 V5에 포함하며 삭제 실행은 후속입니다.
 
 ## gatherings
 

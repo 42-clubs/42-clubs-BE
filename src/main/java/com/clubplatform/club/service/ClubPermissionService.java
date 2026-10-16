@@ -17,6 +17,11 @@ public class ClubPermissionService {
     private final ClubManagerRepository managers;
 
     @Transactional(readOnly = true)
+    public void requireExisting(long clubId) {
+        if (!clubs.existsById(clubId)) throw new ResourceNotFoundException("동아리를 찾을 수 없습니다.");
+    }
+
+    @Transactional(readOnly = true)
     public void requireManager(long actorId, long clubId) {
         var club =
                 clubs.findById(clubId)

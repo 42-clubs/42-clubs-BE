@@ -54,7 +54,9 @@ public class SecurityConfig {
                                                 HttpMethod.GET,
                                                 "/api/v1/clubs",
                                                 "/api/v1/clubs/{clubId}",
-                                                "/api/v1/auth/csrf")
+                                                "/api/v1/auth/csrf",
+                                                "/api/v1/clubs/{clubId}/notices",
+                                                "/api/v1/notices/{noticeId}")
                                         .permitAll()
                                         .requestMatchers("/", "/error")
                                         .permitAll()
