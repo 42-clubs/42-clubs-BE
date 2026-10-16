@@ -118,7 +118,7 @@ V3로 구현되었습니다. 동아리별 조회용 INDEX(club_id)도 적용했�
 
 - UNIQUE(user_id, club_id)로 동일 사용자·동아리 관계를 하나만 유지합니다.
 - CHECK로 status 허용값과 LEFT의 left_at 존재·ACTIVE의 left_at 부재를 검증합니다.
-- left_at이 있으면 joined_at 이상이어야 합니다. 재가입 시 created_at은 유지하며 joined_at·approved_by를 갱신하고 left_at을 NULL로 변경합니다.
+- left_at이 있으면 joined_at 이상이어야 합니다. 재가입 시 created_at은 유지하며 joined_at·approved_by를 갱신하고 left_at을 NULL로 변경합니다. 별도 가입·탈퇴 이력 테이블은 없으며 보존 범위는 [가입 관계 정책](domain-model.md#동아리-가입-관계--확정)을 따릅니다.
 - 후속 아카이브 기능을 도입하면 ACTIVE 행의 status를 LEFT로, left_at·updated_at을 전환 시각으로 갱신합니다. 기존 LEFT 행과 approved_by·joined_at·created_at은 보존합니다. 동아리 상태 변경과 같은 트랜잭션에서 처리하며 [아카이브 정책](future-design.md#게시-및-아카이브-정책--확정)을 따릅니다.
 - 가입 한도는 회원 status와 동아리 operation_status를 함께 조회해 계산하며 별도 집계 컬럼을 두지 않습니다. LEFT 행은 현재 가입 목록·한도에서 제외하며 DB에는 보존합니다. 집계 기준은 [가입 한도 정책](domain-model.md#동아리-가입-한도--확정)을 따릅니다.
 - approved_by의 ADMIN 권한은 가입 등록·재가입 유스케이스에서 검증합니다. FK만으로 등록 권한을 판단하지 않습니다.

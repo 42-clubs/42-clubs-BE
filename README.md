@@ -83,6 +83,7 @@ Spotless는 Google Java Format AOSP 스타일을 적용하며 빌드 중에는 �
 ## 문서 관리 (SSOT)
 
 각 문서는 위 표의 주제를 담당합니다. 같은 규칙을 여러 문서에 복사하지 않고 기준 위치를 링크합니다.
+현재 MVP 범위·업무 정책은 도메인, HTTP 계약은 API 명세, 저장 구조는 ERD를 기준으로 대조합니다. 구현 계획·연동 예시·과거 구현 기록은 기준 문서의 계약을 확장하지 않습니다. 후속 설계의 “확정”은 해당 기능 도입 시 적용할 정책이며 현재 MVP에 포함됐다는 뜻이 아닙니다.
 실행·검증 명령과 구현 상태는 README, 협업·커밋·브랜치 규칙은 [AGENTS.md](AGENTS.md)를 기준으로 합니다.
 환경변수의 이름·용도·기본값·필수 조건·사용 대상·로컬 설정은 [환경변수 문서](docs/environment-variables.md)와 `.env.example`에 함께 반영합니다. 실제 기본값은 application.yml·compose.yaml이 기준입니다.
 
