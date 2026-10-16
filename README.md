@@ -53,7 +53,7 @@ Spotless는 Google Java Format AOSP 스타일을 적용하며 빌드 중에는 �
 | 실행·DB 기반 | 완료: Java 17, Spring Boot, JPA, Flyway, PostgreSQL Compose, Spotless·Lombok |
 | 동아리 공개 조회 | 완료: 목록·상세, 페이지네이션·운영 상태 필터·모집 표시 |
 | 인증·내 정보 | 완료: 42경산 OAuth, 세션·CSRF·로그아웃·USER/ADMIN/SUPER_ADMIN 검사; 실제 42 자격증명 연동 확인 필요 |
-| DB 스키마 | V1~V9 구현: 사용자·동아리·권한·부원·공지·활동/사진/참가·소모임/회차/참가·사진 정리 저널·공지 공개 범위·운영 공지 |
+| DB 스키마 | V1~V10 구현: 사용자·동아리·권한·부원·공지·활동/사진/참가·소모임/회차/참가·사진 정리 저널·공지 공개 범위·운영 공지·회차 제목 |
 | 역할·회장 권한 기반 | 완료: SUPER_ADMIN의 ADMIN 운영 권한 포함, ACTIVE 동아리별 회장 관계 검사, [초기 DB 입력 절차](docs/initial-data-setup.md); 사용자 검색·SUPER_ADMIN의 ADMIN/회장 권한 관리 API 구현 완료 |
 | 부원·활동·공지·소모임 | 완료: 부원 등록·명단, 동아리 공지 공개 범위·운영 공지, 활동·사진, 소모임·회차, 선착순 참가·취소·기본 출결; 사진 첨부는 기본 로컬 저장, [저장소 설정](docs/environment-variables.md#활동-사진-저장소) 필요 |
 | Swagger/OpenAPI | 미도입: Boot 3.5 호환 springdoc 2.8.x의 패치 버전 결정 필요 |

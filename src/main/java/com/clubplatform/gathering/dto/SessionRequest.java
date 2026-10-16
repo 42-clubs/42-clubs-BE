@@ -4,6 +4,7 @@ import jakarta.validation.constraints.*;
 import java.time.*;
 
 public record SessionRequest(
+        @NotBlank @Size(max = 200) String title,
         @NotNull OffsetDateTime startsAt,
         @NotNull OffsetDateTime endsAt,
         @NotNull OffsetDateTime recruitmentClosesAt,

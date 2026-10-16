@@ -16,6 +16,9 @@ public class GatheringSession {
     @Column(nullable = false)
     private long gatheringId;
 
+    @Column(nullable = false, length = 200)
+    private String title;
+
     @Column(nullable = false)
     private Instant startsAt;
 
@@ -44,6 +47,7 @@ public class GatheringSession {
 
     public GatheringSession(
             long gatheringId,
+            String title,
             Instant startsAt,
             Instant endsAt,
             Instant closesAt,
@@ -51,6 +55,7 @@ public class GatheringSession {
             int capacity,
             Instant now) {
         this.gatheringId = gatheringId;
+        this.title = title;
         this.startsAt = startsAt;
         this.endsAt = endsAt;
         recruitmentOpensAt = now;

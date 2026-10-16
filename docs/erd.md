@@ -1,7 +1,7 @@
 # 데이터 모델과 ERD
 
 실제 DB에는 `users`([V1](../src/main/resources/db/migration/V1__create_users.sql))와 `clubs`([V2](../src/main/resources/db/migration/V2__create_clubs.sql)), `club_managers`([V3](../src/main/resources/db/migration/V3__add_super_admin_and_club_managers.sql))가 있습니다. V3는 users.role CHECK에도 SUPER_ADMIN을 추가합니다.
-V4에 club_members, V5에 notices, V6에 activities·activity_images·activity_participants·image_uploads, V7에 gatherings·gathering_sessions·gathering_session_participants, V8에 notices.visibility, V9에 announcements를 구현했습니다. 부원·기본 출결은 아래 MVP 설계에 포함하고 참가 승인제·고정 멤버는 [후속 스키마](future-design.md#후속-스키마)에 분리합니다.
+V4에 club_members, V5에 notices, V6에 activities·activity_images·activity_participants·image_uploads, V7에 gatherings·gathering_sessions·gathering_session_participants, V8에 notices.visibility, V9에 announcements, V10에 gathering_sessions.title을 구현했습니다. 부원·기본 출결은 아래 MVP 설계에 포함하고 참가 승인제·고정 멤버는 [후속 스키마](future-design.md#후속-스키마)에 분리합니다.
 
 - [관계도](#관계도) · [공통 규칙](#공통-규칙)
 - 구현됨: [users](#users) · [clubs](#clubs) · [관리 권한](#club_managers)
@@ -10,7 +10,7 @@ V4에 club_members, V5에 notices, V6에 activities·activity_images·activity_p
 
 ## 관계도
 
-아래 관계는 V1~V9에 구현되어 있습니다. 아래 도식에는 부원·기본 출결을 포함하며 고정 멤버 관계는 후속 설계입니다.
+아래 관계는 V1~V10에 구현되어 있습니다. 아래 도식에는 부원·기본 출결을 포함하며 고정 멤버 관계는 후속 설계입니다.
 
 ```mermaid
 erDiagram
@@ -197,6 +197,7 @@ gatherings에는 created_at·updated_at(TIMESTAMPTZ NOT NULL)을 둡니다. 정�
 | --- | --- | --- | --- |
 | id | BIGINT | O | PK |
 | gathering_id | BIGINT | O | FK → gatherings.id |
+| title | VARCHAR(200) | O | 소모임 제목과 독립적인 회차 이름 |
 | starts_at / ends_at | TIMESTAMPTZ | O | 실제 회차 시작·종료, 종료 > 시작 |
 | location | VARCHAR(255) | O | 개최 장소 |
 | capacity | INTEGER | O | 주최자 포함 회차 정원, 1 이상 |
@@ -204,6 +205,7 @@ gatherings에는 created_at·updated_at(TIMESTAMPTZ NOT NULL)을 둡니다. 정�
 | recruitment_closes_at | TIMESTAMPTZ | O | 회차 모집 마감 날짜·시각 |
 | cancelled_at | TIMESTAMPTZ | X | 회차 취소 시각 |
 
+- V10은 기존 회차의 title을 소속 소모임 제목으로 채운 뒤 NOT NULL을 적용합니다. 신규 회차는 요청한 제목을 저장하며 소모임 제목을 자동 복사하지 않습니다.
 - 공개 <= 시작 - 2시간, 공개 < 마감 < 시작을 검증합니다. 신규 공개 시 과거 시각 지정은 거부합니다.
 - 조기 마감 API는 후속입니다. recruitment_opens_at에는 생성 시각을 기록합니다.
 - 글 작성 시 gatherings·첫 gathering_sessions·주최자의 CONFIRMED 참가 행을 같은 트랜잭션에서 생성합니다.

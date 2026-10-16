@@ -153,7 +153,7 @@ class EventIntegrationTests {
     }
 
     String sessionJson(int capacity) {
-        return "{\"startsAt\":\"2030-05-02T09:00:00+09:00\",\"endsAt\":\"2030-05-02T11:00:00+09:00\",\"recruitmentClosesAt\":\"2030-05-02T08:00:00+09:00\",\"location\":\"Campus\",\"capacity\":"
+        return "{\"title\":\"Session\",\"startsAt\":\"2030-05-02T09:00:00+09:00\",\"endsAt\":\"2030-05-02T11:00:00+09:00\",\"recruitmentClosesAt\":\"2030-05-02T08:00:00+09:00\",\"location\":\"Campus\",\"capacity\":"
                 + capacity
                 + "}";
     }
@@ -430,6 +430,60 @@ class EventIntegrationTests {
                                 .contentType("application/json")
                                 .content("{\"attendanceStatus\":\"PRESENT\"}"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void sessionTitlesAreRequiredAndReturnedForFirstAndFollowingSessions() throws Exception {
+        long first = create(true, 3);
+        long gathering =
+                jdbc.queryForObject(
+                        "SELECT gathering_id FROM gathering_sessions WHERE id=?",
+                        Long.class,
+                        first);
+        String path = "/api/v1/gatherings/" + gathering + "/sessions";
+        mvc.perform(get(path + "/" + first))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Session"));
+        mvc.perform(get("/api/v1/gatherings"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].representativeSession.title").value("Session"));
+        mvc.perform(
+                        post(path)
+                                .session(session(owner))
+                                .with(csrf())
+                                .contentType("application/json")
+                                .content(
+                                        sessionJson(3)
+                                                .replace("Session", "October book discussion")))
+                .andExpect(status().isCreated());
+        mvc.perform(get(path))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[1].title").value("October book discussion"));
+        for (String invalid :
+                List.of(
+                        sessionJson(3).replace("\"title\":\"Session\",", ""),
+                        sessionJson(3).replace("Session", "   "),
+                        sessionJson(3).replace("Session", "x".repeat(201)))) {
+            mvc.perform(
+                            post(path)
+                                    .session(session(owner))
+                                    .with(csrf())
+                                    .contentType("application/json")
+                                    .content(invalid))
+                    .andExpect(status().isBadRequest());
+            mvc.perform(
+                            post("/api/v1/gatherings")
+                                    .session(session(owner))
+                                    .with(csrf())
+                                    .contentType("application/json")
+                                    .content(
+                                            "{\"title\":\"Gathering\",\"content\":\"Body\",\"session\":"
+                                                    + invalid
+                                                    + "}"))
+                    .andExpect(status().isBadRequest());
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM gathering_sessions", Integer.class))
+                .isEqualTo(2);
     }
 
     @Test

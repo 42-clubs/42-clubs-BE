@@ -5,6 +5,7 @@ import java.time.Instant;
 public record SessionResponse(
         long sessionId,
         long gatheringId,
+        String title,
         Instant startsAt,
         Instant endsAt,
         Instant recruitmentOpensAt,

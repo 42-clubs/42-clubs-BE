@@ -396,11 +396,14 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 
 | 필드 | JSON 타입 | 필수·검증 |
 | --- | --- | --- |
+| title | string | 필수, 공백만 불가, 최대 200자; 소모임 제목과 독립적인 회차 이름 |
 | startsAt | string | 필수, 오프셋 포함 ISO 8601, 생성 시각에서 최소 2시간 이후 |
 | endsAt | string | 필수, 오프셋 포함 ISO 8601, startsAt 이후 |
 | recruitmentClosesAt | string | 필수, 오프셋 포함 ISO 8601, 생성 시각 이후·startsAt 이전 |
 | location | string | 필수, 공백만 불가, 최대 255자 |
 | capacity | integer | 필수, 1~2,147,483,647, 주최자 포함 |
+
+첫 회차는 session.title, 다음 회차는 최상위 title을 필수로 보냅니다. 기존 클라이언트도 제목을 추가해야 하며 생략 시 400입니다. 회차 제목은 회차 목록·상세와 소모임 목록의 representativeSession에 포함됩니다.
 
 모집 공개는 회차 생성 즉시입니다. recruitmentOpensAt·organizerId는 서버가 결정하며 요청 필드가 아닙니다. 다음 회차 생성에는 session으로 감싸지 않은 SessionRequest JSON을 보냅니다. 이전 참가자·출결은 복사하지 않으며 각 회차에 주최자만 자동 참가합니다. 생성 중 실패하면 모임·회차·주최자 참가가 일부만 남지 않도록 롤백합니다.
 
@@ -438,6 +441,7 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 | --- | --- | --- |
 | sessionId | integer | 회차 ID; 참가·출결 요청에 사용 |
 | gatheringId | integer | 소속 소모임 ID |
+| title | string | 회차 제목 |
 | startsAt / endsAt | string | UTC ISO 8601 개최·종료 시각 |
 | recruitmentOpensAt | string | UTC ISO 8601 공개 시각, 회차 생성 시각 |
 | recruitmentClosesAt | string | UTC ISO 8601 모집 마감 시각 |

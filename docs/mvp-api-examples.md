@@ -108,7 +108,7 @@ Content-Type: application/json
 Cookie: JSESSIONID=...
 X-CSRF-TOKEN: ...
 
-{"title":"독서 모임","content":"함께 책을 읽습니다.","session":{"startsAt":"2030-05-02T09:00:00+09:00","endsAt":"2030-05-02T11:00:00+09:00","recruitmentClosesAt":"2030-05-02T08:00:00+09:00","location":"캠퍼스","capacity":6}}
+{"title":"독서 모임","content":"함께 책을 읽습니다.","session":{"title":"5월 책 이야기","startsAt":"2030-05-02T09:00:00+09:00","endsAt":"2030-05-02T11:00:00+09:00","recruitmentClosesAt":"2030-05-02T08:00:00+09:00","location":"캠퍼스","capacity":6}}
 ```
 
 201, `Location: /api/v1/gatherings/30`, `{"gatheringId":30,"sessionId":40}`을 받습니다. 공개 소개는 `GET /api/v1/gatherings/30`, 회차는 `GET /api/v1/gatherings/30/sessions?filter=UPCOMING` 또는 `GET /api/v1/gatherings/30/sessions/40`으로 조회합니다.
@@ -116,7 +116,7 @@ X-CSRF-TOKEN: ...
 다음 회차는 주최자가 `POST /api/v1/gatherings/30/sessions`에 아래 JSON을 보냅니다. session으로 한 번 더 감싸지 않습니다.
 
 ```json
-{"startsAt":"2030-05-09T09:00:00+09:00","endsAt":"2030-05-09T11:00:00+09:00","recruitmentClosesAt":"2030-05-09T08:00:00+09:00","location":"캠퍼스","capacity":6}
+{"title":"다음 책 이야기","startsAt":"2030-05-09T09:00:00+09:00","endsAt":"2030-05-09T11:00:00+09:00","recruitmentClosesAt":"2030-05-09T08:00:00+09:00","location":"캠퍼스","capacity":6}
 ```
 
 201·Location과 `{"gatheringId":30,"sessionId":41}`을 반환합니다. 같은 gatheringId에 새 sessionId를 만들며 이전 참가자·출결은 복사하지 않습니다.
@@ -126,7 +126,7 @@ X-CSRF-TOKEN: ...
 소모임 목록의 항목은 `{id, organizerId, title, content:null, representativeImageUrl:null, representativeSession}`이고, 상세는 content를 제공하며 representativeSession=null입니다. 상세 화면은 회차 목록을 함께 조회합니다. 회차 DTO는 다음과 같습니다.
 
 ```json
-{"sessionId":40,"gatheringId":30,"startsAt":"2030-05-02T00:00:00Z","endsAt":"2030-05-02T02:00:00Z","recruitmentOpensAt":"2030-05-01T00:00:00Z","recruitmentClosesAt":"2030-05-01T23:00:00Z","location":"캠퍼스","capacity":6,"currentParticipantCount":1,"remainingCapacity":5,"recruiting":true,"dDay":"D-1","cancelled":false}
+{"sessionId":40,"gatheringId":30,"title":"5월 책 이야기","startsAt":"2030-05-02T00:00:00Z","endsAt":"2030-05-02T02:00:00Z","recruitmentOpensAt":"2030-05-01T00:00:00Z","recruitmentClosesAt":"2030-05-01T23:00:00Z","location":"캠퍼스","capacity":6,"currentParticipantCount":1,"remainingCapacity":5,"recruiting":true,"dDay":"D-1","cancelled":false}
 ```
 
 ## 경로 전환 확인

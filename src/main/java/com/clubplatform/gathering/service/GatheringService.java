@@ -46,6 +46,7 @@ public class GatheringService {
                 sessions.save(
                         new GatheringSession(
                                 g.getId(),
+                                r.title(),
                                 r.startsAt().toInstant(),
                                 r.endsAt().toInstant(),
                                 r.recruitmentClosesAt().toInstant(),
@@ -152,6 +153,7 @@ public class GatheringService {
         return new SessionResponse(
                 s.getId(),
                 s.getGatheringId(),
+                s.getTitle(),
                 s.getStartsAt(),
                 s.getEndsAt(),
                 s.getRecruitmentOpensAt(),
