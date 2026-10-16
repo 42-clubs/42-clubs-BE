@@ -1,8 +1,9 @@
 # API 명세
 
-인증·동아리 조회·사용자 검색·권한 관리와 2~7단계 MVP API를 구현했습니다. 전체 42개 경로(기존 인증·동아리 조회 7개 + 업무 API 34개 + 로컬 사진 조회 1개)를 아래 표에 정리했습니다. 아래 경로·DTO·상태·오류 계약과 [요청·응답 예시](mvp-api-examples.md)를 기준으로 연동합니다.
+인증·동아리 조회·사용자 검색·권한 관리와 2~7단계 MVP API를 구현했습니다. 전체 46개 엔드포인트(기존 인증·동아리 조회 7개 + 업무 API 38개 + 로컬 사진 조회 1개)를 아래 표에 정리했습니다. 아래 경로·DTO·상태·오류 계약과 [요청·응답 예시](mvp-api-examples.md)를 기준으로 연동합니다.
 [현재 MVP 정책](domain-model.md#축소-mvp--2026-10-14-확정)과 [후속 API](future-design.md#후속-api-초안)를 구분해 사용합니다.
 
+- [마이페이지·내 권한](#마이페이지내-권한--구현-계약)
 - [공통 원칙](#공통-원칙)
 - [먼저 구현할 순서](#먼저-구현할-순서)
 - [인증 — 구현 완료](#인증--구현-계약)
@@ -22,7 +23,7 @@
 
 기능별 DB 작업·의존성·검증 조건은 [MVP 구현 계획](mvp-implementation-plan.md)에서 관리합니다. 계획에서는 권한 관리 화면의 선행 의존성인 사용자 검색을 부원 관리보다 먼저 구현합니다.
 
-현재 구현된 인증 5개(OAuth 시작·콜백 포함)와 동아리 조회 2개를 활용합니다. 업무 엔드포인트는 총 **34개**이며 모두 구현했습니다. 활동 사진은 작성 요청에 포함하므로 별도 업로드 API를 추가하지 않습니다. 아래 순서는 개발 권장 순서이며 각 단계의 경로·권한은 뒤의 표가 기준입니다.
+현재 구현된 인증 5개(OAuth 시작·콜백 포함)와 동아리 조회 2개를 활용합니다. 업무 엔드포인트는 총 **38개**이며 모두 구현했습니다. 활동 사진은 작성 요청에 포함하므로 별도 업로드 API를 추가하지 않습니다. 아래 순서는 개발 권장 순서이며 각 단계의 경로·권한은 뒤의 표가 기준입니다.
 
 | 순서 | 구현 묶음 | API 수 | 상태 |
 | --- | --- | --- | --- |
@@ -34,6 +35,7 @@
 | 5 | 활동 참가·취소·기본 출결 | 5 | 완료 |
 | 6 | 소모임·회차 작성·조회 | 6 | 완료 |
 | 7 | 회차 참가·취소·기본 출결 | 5 | 완료 |
+| 8 | 마이페이지·동아리별 내 권한 | 4 | 완료 |
 
 초기 동아리·회장·최고 관리자는 전달받은 정보로 [초기 DB 입력 절차](initial-data-setup.md)에 따라 입력합니다. 이후 권한 관리는 아래 최고 관리자 API를 사용합니다. 동아리 생성 API는 MVP에 추가하지 않습니다. 0단계에서 SUPER_ADMIN 역할과 ClubManager 관계·작성 권한 검사를 구현했습니다. ClubMember는 V4와 2단계 API로 구현했습니다.
 
@@ -560,3 +562,60 @@ UNCHECKED로 되돌리면 체크 사용자·시각을 비웁니다. PRESENT 기�
 - 회차 상세·참가·취소·본인 상태·명단·출결은 `/api/v1/gatherings/{gatheringId}/sessions/{sessionId}` 아래로 통일했습니다. 회차 생성 Location도 이 경로를 반환합니다.
 - 경로의 gatheringId와 실제 회차의 소모임이 다르거나 소모임이 삭제되었으면 404입니다. 기존 회차별 참가·권한 정책은 유지합니다.
 - 기존 `/api/v1/gathering-sessions/{sessionId}` 및 하위 경로는 제거했습니다. 리다이렉트·호환 별칭이 없으므로 프론트 호출과 링크를 함께 변경해야 합니다. 미인증 요청은 공통 보안 규칙에 따라 401/403이 먼저 반환될 수 있습니다.
+
+## 마이페이지·내 권한 — 구현 계약
+
+모두 로그인 필수이며 인증 정보의 사용자 ID만 사용합니다. userId 요청 매개변수로 타인의 데이터를 조회하지 않습니다. 성공은 200이며 기존 공개 조회·등록·참가 계약은 유지합니다.
+
+| 메서드 | 전체 경로 | 응답 |
+| --- | --- | --- |
+| GET | /api/v1/me/clubs | Page&lt;MyClubResponse&gt;, 가입·관리 동아리 통합 |
+| GET | /api/v1/clubs/{clubId}/permissions/me | ClubPermissions, 해당 동아리에서 가능한 행동 |
+| GET | /api/v1/me/participations | Page&lt;MyParticipationGroup&gt;, 동아리 활동·소모임 회차 통합 |
+| GET | /api/v1/me/gatherings | Page&lt;MyParticipationGroup&gt;, 소모임별 본인 참가 회차 |
+
+세 목록은 공통 page=0, size=20(1~100)을 사용합니다. 내 동아리는 동아리 ID 오름차순입니다. 가입·관리 양쪽에 해당해도 한 행이며, 플랫폼 운영자라는 이유로 모든 동아리를 포함하지 않습니다. 남아 있는 아카이브 관계도 포함합니다.
+
+**MyClubResponse**: `{clubId, name, operationStatus, isMember, isManager, permissions}`. isMember는 ACTIVE 부원 관계, isManager는 현재 회장 관계입니다. 두 값은 독립적입니다.
+
+**ClubPermissions**는 아래 boolean 필드를 제공합니다. 내 동아리의 permissions와 단독 권한 응답은 같은 정책을 사용합니다.
+
+| 필드 | 조건 |
+| --- | --- |
+| isMember | 해당 동아리 ACTIVE 부원 관계 |
+| isManager | 해당 동아리 회장 관계 |
+| canCreateActivity | ACTIVE 동아리의 회장 |
+| canCreateNotice | ACTIVE 동아리의 회장 또는 ADMIN·SUPER_ADMIN |
+| canViewMembers | 해당 동아리 ACTIVE 부원 관계 |
+| canReadPrivateNotices | 해당 동아리 ACTIVE 부원·회장 또는 ADMIN·SUPER_ADMIN |
+
+단독 권한 조회는 관계가 없는 로그인 사용자도 가능하며 부족한 권한을 false로 반환합니다. 없는 동아리는 404입니다. 권한은 조회 시점의 값이므로 실제 변경 요청에서도 재검사하며, 주최자별 명단·출결 권한을 부여하는 필드는 아닙니다.
+
+### 참가 그룹 필터와 정렬
+
+- `/me/participations?period=UPCOMING|PAST|ALL`: 기본 UPCOMING. UPCOMING은 startsAt > 현재 시각, PAST는 startsAt <= 현재 시각, ALL은 둘 다 포함합니다. 빈 값은 기본값입니다.
+- `/me/gatherings?scope=ACTIVE|ALL`: 기본 ACTIVE. ACTIVE는 본인의 미취소 CONFIRMED 회차 중 endsAt > 현재 시각인 회차가 있는 모임만 선택합니다. 선택된 모임에는 본인이 참가한 지난 회차도 포함합니다. ALL은 지난 회차만 있는 모임도 포함합니다. 빈 값은 기본값입니다.
+- CONFIRMED 관계만 포함하며 주최자의 자동 참가도 포함합니다. 본인 취소, 삭제된 활동·소모임, 취소된 회차는 제외합니다. 다른 사용자의 참가·출결은 반환하지 않습니다. 불참·승인 대기 상태는 추가하지 않습니다.
+- 그룹 안 items는 시작 시각 → 활동/회차 ID 오름차순입니다. period=PAST일 때는 둘 다 내림차순입니다. 그룹은 정렬된 첫 항목의 시작 시각으로 정렬하며 동률은 type → groupId 오름차순입니다. PAST의 그룹 시작 시각은 내림차순이고 나머지는 오름차순입니다.
+- 페이지네이션은 **그룹 단위**입니다. totalElements는 그룹 수이며 각 그룹의 items 전체를 반환합니다. 소모임 회차가 페이지 사이에서 잘리지 않습니다.
+
+**MyParticipationGroup**
+
+| 필드 | 타입·의미 |
+| --- | --- |
+| type | CLUB / GATHERING |
+| groupId | 동아리 ID 또는 소모임 ID; type과 함께 식별 |
+| name | 동아리 또는 소모임 이름 |
+| items | 본인의 참가 항목 배열 |
+| items[].activityId | 동아리 활동 ID, 소모임 회차는 null |
+| items[].sessionId | 소모임 회차 ID, 동아리 활동은 null |
+| items[].title | 활동 제목 또는 독립적인 회차 제목 |
+| items[].startsAt | UTC ISO 8601 시작 시각 |
+| items[].endsAt | 소모임 회차 종료 시각; 동아리 활동은 null |
+| items[].status | CONFIRMED |
+| items[].attendanceStatus | UNCHECKED / PRESENT |
+| items[].isOrganizer | 본인이 해당 활동·소모임 주최자인지 |
+
+상세 이동은 CLUB이면 `/clubs/{groupId}/activities/{activityId}`, GATHERING이면 `/gatherings/{groupId}/sessions/{sessionId}`를 사용하며 API 호출에는 `/api/v1`을 붙입니다. 일회성과 정기모임은 같은 그룹 구조입니다.
+
+잘못된 ID·필터·page·size는 400 INVALID_REQUEST, 미인증은 401 UNAUTHENTICATED입니다. 빈 목록이나 범위 밖 페이지는 200·빈 content입니다. 캘린더 전용 엔드포인트·월별 필터는 이번 범위에 포함하지 않습니다.

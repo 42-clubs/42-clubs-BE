@@ -191,12 +191,10 @@ MVP는 CONFIRMED/CANCELLED와 선착순 참가·취소·재참가만 구현합�
 
 ### 사용자·내역 조회
 
+가입·관리 동아리, 소모임별 참가 회차와 통합 참가 내역은 [현재 마이페이지 API](api-endpoints.md#마이페이지내-권한--구현-계약)로 구현했습니다. 고정 멤버·승인 대기·삭제된 활동 기록 조회는 계속 후속 범위입니다. 캘린더 API는 프론트 요청 후 별도로 설계합니다.
+
 | 메서드 | 경로 | 기능 | 권한 |
 | --- | --- | --- | --- |
-| GET | /me/clubs | 관리하는 동아리 | 로그인 |
-| GET | /me/gatherings | 주최 소모임 및 고정 멤버 신청 내역, 필터 구분 | 로그인 |
-| GET | /me/gathering-sessions | 회차별 참여 내역·본인 출결 | 로그인 |
-| GET | /me/activities | 주최·참여 활동 및 본인 출결 | 로그인 |
 | GET | /clubs/{clubId}/organizer-candidates?intraLogin=... | 활동 주최자 지정 대상 검색 | 해당 동아리 관리자 |
 | GET | /clubs/{clubId}/activities/{activityId}/participant-candidates?intraLogin=... | 활동 참가자 등록 대상 검색 | 해당 활동 주최자 |
 
@@ -222,7 +220,7 @@ MVP는 CONFIRMED/CANCELLED와 선착순 참가·취소·재참가만 구현합�
 | PATCH | /clubs/{clubId}/notices/{noticeId} | 공지 수정 | ACTIVE인 소속 동아리 관리자 |
 | DELETE | /clubs/{clubId}/notices/{noticeId} | 공지 논리 삭제 — 여유 시 후속, MVP 제외 | ACTIVE인 소속 동아리 관리자 |
 
-삭제 후 본인 기록은 `/me/activities`, 주최자 관리 명단은 `/clubs/{clubId}/activities/{activityId}/participants`로 조회하는 초안입니다. 삭제된 활동의 변경은 409로 처리합니다.
+삭제 후 본인 기록은 향후 `/me/participations`의 삭제 기록 조회 확장, 주최자 관리 명단은 `/clubs/{clubId}/activities/{activityId}/participants`로 조회하는 초안입니다. 삭제된 활동의 변경은 409로 처리합니다.
 
 ### 소모임 운영 API
 

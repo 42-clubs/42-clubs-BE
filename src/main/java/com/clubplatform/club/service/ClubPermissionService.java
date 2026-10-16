@@ -1,6 +1,6 @@
 package com.clubplatform.club.service;
 
-import com.clubplatform.club.entity.OperationStatus;
+import com.clubplatform.club.dto.ClubPermissions;
 import com.clubplatform.club.repository.ClubManagerRepository;
 import com.clubplatform.club.repository.ClubMemberRepository;
 import com.clubplatform.club.repository.ClubRepository;
@@ -27,30 +27,30 @@ public class ClubPermissionService {
 
     @Transactional(readOnly = true)
     public void requireManager(long actorId, long clubId) {
-        var club =
-                clubs.findById(clubId)
-                        .orElseThrow(() -> new ResourceNotFoundException("동아리를 찾을 수 없습니다."));
-        if (club.getOperationStatus() != OperationStatus.ACTIVE
-                || !managers.existsByUserIdAndClubId(actorId, clubId)) {
+        if (!permissions(actorId, clubId).canCreateActivity())
             throw new AccessDeniedException("운영 중인 해당 동아리의 회장 권한이 필요합니다.");
-        }
     }
 
     @Transactional(readOnly = true)
     public void requireNoticeWriter(long actorId, long clubId) {
-        var club =
-                clubs.findById(clubId)
-                        .orElseThrow(() -> new ResourceNotFoundException("동아리를 찾을 수 없습니다."));
-        if (club.getOperationStatus() != OperationStatus.ACTIVE
-                || (!users.isAdmin(actorId) && !managers.existsByUserIdAndClubId(actorId, clubId)))
+        if (!permissions(actorId, clubId).canCreateNotice())
             throw new AccessDeniedException("운영 중인 동아리의 회장 또는 운영 권한이 필요합니다.");
     }
 
     @Transactional(readOnly = true)
+    public ClubPermissions permissions(long actorId, long clubId) {
+        var club =
+                clubs.findById(clubId)
+                        .orElseThrow(() -> new ResourceNotFoundException("동아리를 찾을 수 없습니다."));
+        return ClubPermissions.of(
+                members.existsByUserIdAndClubIdAndStatus(actorId, clubId, "ACTIVE"),
+                managers.existsByUserIdAndClubId(actorId, clubId),
+                users.isAdmin(actorId),
+                club.getOperationStatus());
+    }
+
+    @Transactional(readOnly = true)
     public boolean canReadPrivateNotices(Long actorId, long clubId) {
-        return actorId != null
-                && (users.isAdmin(actorId)
-                        || managers.existsByUserIdAndClubId(actorId, clubId)
-                        || members.existsByUserIdAndClubIdAndStatus(actorId, clubId, "ACTIVE"));
+        return actorId != null && permissions(actorId, clubId).canReadPrivateNotices();
     }
 }

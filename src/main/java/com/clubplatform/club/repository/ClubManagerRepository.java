@@ -6,6 +6,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ClubManagerRepository extends JpaRepository<ClubManager, Long> {
+    java.util.List<ClubManager> findByUserId(long userId);
+
     boolean existsByUserIdAndClubId(long userId, long clubId);
 
     Page<ClubManager> findByClubId(long clubId, Pageable pageable);

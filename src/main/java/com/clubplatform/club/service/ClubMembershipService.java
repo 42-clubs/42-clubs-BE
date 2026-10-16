@@ -22,6 +22,7 @@ public class ClubMembershipService {
     private final ClubRepository clubs;
     private final UserAdministrationService users;
     private final Clock clock;
+    private final ClubPermissionService permissions;
 
     @Transactional
     public void register(long actorId, long clubId, long userId) {
@@ -60,7 +61,7 @@ public class ClubMembershipService {
 
     public UserDirectoryPage roster(long actorId, long clubId, int page, int size) {
         if (!clubs.existsById(clubId)) throw new ResourceNotFoundException("동아리를 찾을 수 없습니다.");
-        if (!members.existsByUserIdAndClubIdAndStatus(actorId, clubId, "ACTIVE"))
+        if (!permissions.permissions(actorId, clubId).canViewMembers())
             throw new AccessDeniedException("해당 동아리 부원만 조회할 수 있습니다.");
         var rows =
                 members.findByClubIdAndStatus(

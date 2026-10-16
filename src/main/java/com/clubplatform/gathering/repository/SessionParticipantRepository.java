@@ -12,6 +12,16 @@ public interface SessionParticipantRepository extends JpaRepository<SessionParti
 
     Page<SessionParticipant> findBySessionId(long parentId, Pageable pageable);
 
+    @org.springframework.data.jpa.repository.Query(
+            """
+        select new com.clubplatform.gathering.dto.MySession(s.id,g.id,g.title,s.title,s.startsAt,s.endsAt,g.organizerId,p.status,p.attendanceStatus)
+        from SessionParticipant p join GatheringSession s on s.id=p.sessionId
+        join Gathering g on g.id=s.gatheringId
+        where p.userId=:userId and p.status='CONFIRMED' and g.deletedAt is null and s.cancelledAt is null
+        """)
+    java.util.List<com.clubplatform.gathering.dto.MySession> findMine(
+            @org.springframework.data.repository.query.Param("userId") long userId);
+
     interface ConfirmedCount {
         Long getParentId();
 

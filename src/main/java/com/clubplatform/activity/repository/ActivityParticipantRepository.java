@@ -12,6 +12,15 @@ public interface ActivityParticipantRepository extends JpaRepository<ActivityPar
 
     Page<ActivityParticipant> findByActivityId(long parentId, Pageable pageable);
 
+    @org.springframework.data.jpa.repository.Query(
+            """
+        select new com.clubplatform.activity.dto.MyActivity(a.id,a.clubId,a.title,a.startsAt,a.organizerId,p.status,p.attendanceStatus)
+        from ActivityParticipant p join Activity a on a.id=p.activityId
+        where p.userId=:userId and p.status='CONFIRMED' and a.deletedAt is null
+        """)
+    java.util.List<com.clubplatform.activity.dto.MyActivity> findMine(
+            @org.springframework.data.repository.query.Param("userId") long userId);
+
     interface ConfirmedCount {
         Long getParentId();
 

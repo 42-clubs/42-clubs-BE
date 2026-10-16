@@ -149,3 +149,28 @@ X-CSRF-TOKEN: ...
 ```
 
 HTTP 409 상태에서 code로 정원·마감·중복 참가 등을 구분합니다. 로그인 없이 조회하는 공개 API와 인증이 필요한 본인 상태·명단 API를 구분합니다. 로컬 사진 URL은 만료되지 않습니다. S3 모드의 서명 이미지 URL은 만료되면 활동을 다시 조회해 갱신합니다.
+
+## 내 동아리·권한·참가 내역
+
+로그인 쿠키를 포함해 호출합니다. 조회 요청에는 CSRF 헤더가 필요하지 않습니다.
+
+```http
+GET /api/v1/me/clubs?page=0&size=20
+GET /api/v1/clubs/1/permissions/me
+GET /api/v1/me/participations?period=PAST&page=0&size=20
+GET /api/v1/me/gatherings?scope=ACTIVE&page=0&size=20
+```
+
+내 동아리 항목 예시:
+
+```json
+{"clubId":1,"name":"42 Music","operationStatus":"ACTIVE","isMember":true,"isManager":false,"permissions":{"isMember":true,"isManager":false,"canCreateActivity":false,"canCreateNotice":false,"canViewMembers":true,"canReadPrivateNotices":true}}
+```
+
+참가 내역·내 소모임의 그룹 항목 예시(실제 응답은 공통 페이지 구조의 content 안에 포함):
+
+```json
+{"type":"GATHERING","groupId":30,"name":"한 달 한 권","items":[{"activityId":null,"sessionId":40,"title":"10월 책 이야기","startsAt":"2026-10-28T10:00:00Z","endsAt":"2026-10-28T12:00:00Z","status":"CONFIRMED","attendanceStatus":"UNCHECKED","isOrganizer":false}]}
+```
+
+가입한 동아리 영역은 isMember, 관리 동아리 영역은 isManager로 구분합니다. 참가 예정은 period=UPCOMING, 지난 활동은 period=PAST를 사용합니다. 같은 그룹 아래 items를 나열하고 type과 groupId로 그룹을 식별합니다. 일회성도 items 한 개로 표시합니다. 참가 확정과 실제 출석은 구분합니다. 상세 이동·필터·권한의 전체 계약은 [명세](api-endpoints.md#마이페이지내-권한--구현-계약)를 따릅니다. 캘린더 API는 이번 범위에서 제외합니다.

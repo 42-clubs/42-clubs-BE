@@ -433,6 +433,232 @@ class EventIntegrationTests {
     }
 
     @Test
+    void myClubsMergeMembershipAndManagementAndReflectRevokedPermissions() throws Exception {
+        mvc.perform(get("/api/v1/me/clubs").session(session(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].isManager").value(true))
+                .andExpect(jsonPath("$.content[0].isMember").value(false));
+        long joined = clubs.saveAndFlush(new Club("Joined", "Summary", "Description")).getId();
+        long left = clubs.saveAndFlush(new Club("Left", "Summary", "Description")).getId();
+        mvc.perform(
+                        put("/api/v1/admin/clubs/" + joined + "/members/" + owner)
+                                .session(session(admin))
+                                .with(csrf()))
+                .andExpect(status().isNoContent());
+        mvc.perform(
+                        put("/api/v1/admin/clubs/" + club + "/members/" + owner)
+                                .session(session(admin))
+                                .with(csrf()))
+                .andExpect(status().isNoContent());
+        mvc.perform(
+                        put("/api/v1/admin/clubs/" + left + "/members/" + owner)
+                                .session(session(admin))
+                                .with(csrf()))
+                .andExpect(status().isNoContent());
+        jdbc.update(
+                "UPDATE club_members SET status='LEFT',left_at=joined_at WHERE club_id=?", left);
+        var browser = session(owner);
+        mvc.perform(get("/api/v1/me/clubs").session(browser))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].isMember").value(true))
+                .andExpect(jsonPath("$.content[0].isManager").value(true))
+                .andExpect(jsonPath("$.content[1].isManager").value(false));
+        mvc.perform(get("/api/v1/me/clubs").param("size", "1").param("page", "1").session(browser))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].clubId").value(joined));
+        mvc.perform(get("/api/v1/me/clubs").session(session(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+        String permissions = "/api/v1/clubs/" + club + "/permissions/me";
+        mvc.perform(get(permissions).session(browser))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.canCreateActivity").value(true))
+                .andExpect(jsonPath("$.canViewMembers").value(true));
+        jdbc.update("UPDATE clubs SET operation_status='ARCHIVED' WHERE id=?", club);
+        mvc.perform(get(permissions).session(browser))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isManager").value(true))
+                .andExpect(jsonPath("$.canCreateActivity").value(false));
+        jdbc.update("DELETE FROM club_managers WHERE club_id=?", club);
+        jdbc.update(
+                "UPDATE club_members SET status='LEFT',left_at=joined_at WHERE club_id=?", club);
+        mvc.perform(get(permissions).session(browser))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.canViewMembers").value(false))
+                .andExpect(jsonPath("$.isManager").value(false));
+    }
+
+    @Test
+    void myPermissionsMatchCurrentAdminAndMemberRules() throws Exception {
+        String path = "/api/v1/clubs/" + club + "/permissions/me";
+        var browser = session(admin);
+        mvc.perform(get(path).session(browser))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.canCreateNotice").value(true))
+                .andExpect(jsonPath("$.canCreateActivity").value(false))
+                .andExpect(jsonPath("$.canViewMembers").value(false))
+                .andExpect(jsonPath("$.canReadPrivateNotices").value(true));
+        jdbc.update("UPDATE users SET role='USER' WHERE id=?", admin);
+        mvc.perform(get(path).session(browser))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.canCreateNotice").value(false))
+                .andExpect(jsonPath("$.canReadPrivateNotices").value(false));
+        mvc.perform(get("/api/v1/clubs/9223372036854775807/permissions/me").session(browser))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void myParticipationsCombineBothTypesAndUseStartTimeBoundary() throws Exception {
+        long activity = create(false, 4);
+        long first = create(true, 4);
+        long gathering =
+                jdbc.queryForObject(
+                        "SELECT gathering_id FROM gathering_sessions WHERE id=?",
+                        Long.class,
+                        first);
+        mvc.perform(
+                        post(base(false, activity) + "/participants")
+                                .session(session(user))
+                                .with(csrf()))
+                .andExpect(status().isNoContent());
+        mvc.perform(post(base(true, first) + "/participants").session(session(user)).with(csrf()))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/me/participations").session(session(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].type").value("CLUB"))
+                .andExpect(jsonPath("$.content[0].name").value("Club"))
+                .andExpect(jsonPath("$.content[0].items[0].isOrganizer").value(false))
+                .andExpect(jsonPath("$.content[1].groupId").value(gathering))
+                .andExpect(jsonPath("$.content[1].items[0].title").value("Session"));
+        mvc.perform(get("/api/v1/me/participations").session(session(other)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mvc.perform(get("/api/v1/me/participations").session(session(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].items[0].isOrganizer").value(true));
+        clock.value = Instant.parse("2030-05-02T00:00:00Z");
+        mvc.perform(get("/api/v1/me/participations").session(session(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mvc.perform(get("/api/v1/me/participations").param("period", "PAST").session(session(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].items[0].attendanceStatus").value("UNCHECKED"));
+    }
+
+    @Test
+    void myGatheringsGroupAllParticipatingSessionsIncludingOneTimeAndHideEndedGroups()
+            throws Exception {
+        long first = create(true, 4);
+        long gathering =
+                jdbc.queryForObject(
+                        "SELECT gathering_id FROM gathering_sessions WHERE id=?",
+                        Long.class,
+                        first);
+        String path = "/api/v1/gatherings/" + gathering + "/sessions";
+        mvc.perform(
+                        post(path)
+                                .session(session(owner))
+                                .with(csrf())
+                                .contentType("application/json")
+                                .content(
+                                        sessionJson(4)
+                                                .replace("2030-05-02", "2030-05-09")
+                                                .replace("Session", "Next session")))
+                .andExpect(status().isCreated());
+        long second = jdbc.queryForObject("SELECT max(id) FROM gathering_sessions", Long.class);
+        long single = create(true, 4);
+        mvc.perform(get("/api/v1/me/gatherings").session(session(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].items.length()").value(2))
+                .andExpect(jsonPath("$.content[0].items[1].sessionId").value(second))
+                .andExpect(jsonPath("$.content[1].items.length()").value(1));
+        clock.value = Instant.parse("2030-05-02T01:00:00Z");
+        mvc.perform(get("/api/v1/me/gatherings").session(session(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2));
+        clock.value = Instant.parse("2030-05-02T02:00:00Z");
+        mvc.perform(get("/api/v1/me/gatherings").session(session(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].items.length()").value(2));
+        mvc.perform(
+                        get("/api/v1/me/gatherings")
+                                .param("scope", "ALL")
+                                .param("size", "1")
+                                .session(session(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content.length()").value(1));
+        jdbc.update("UPDATE gathering_sessions SET cancelled_at=now() WHERE id=?", second);
+        mvc.perform(get("/api/v1/me/gatherings").session(session(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    @Test
+    void myHistoryExcludesCancelledAndDeletedResources() throws Exception {
+        long activity = create(false, 4);
+        long first = create(true, 4);
+        mvc.perform(
+                        post(base(false, activity) + "/participants")
+                                .session(session(user))
+                                .with(csrf()))
+                .andExpect(status().isNoContent());
+        mvc.perform(
+                        delete(base(false, activity) + "/participants/me")
+                                .session(session(user))
+                                .with(csrf()))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/me/participations").param("period", "ALL").session(session(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+        jdbc.update("UPDATE activities SET deleted_at=now() WHERE id=?", activity);
+        jdbc.update(
+                "UPDATE gatherings SET deleted_at=now() WHERE id=(SELECT gathering_id FROM gathering_sessions WHERE id=?)",
+                first);
+        mvc.perform(get("/api/v1/me/participations").param("period", "ALL").session(session(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mvc.perform(get("/api/v1/me/gatherings").param("scope", "ALL").session(session(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    @Test
+    void myPageEndpointsRequireAuthenticationAndValidateFiltersAndPaging() throws Exception {
+        for (String path :
+                List.of(
+                        "/api/v1/me/clubs",
+                        "/api/v1/me/participations",
+                        "/api/v1/me/gatherings",
+                        "/api/v1/clubs/" + club + "/permissions/me")) {
+            mvc.perform(get(path)).andExpect(status().isUnauthorized());
+        }
+        for (String path :
+                List.of("/api/v1/me/clubs", "/api/v1/me/participations", "/api/v1/me/gatherings")) {
+            mvc.perform(get(path).param("size", "101").session(session(user)))
+                    .andExpect(status().isBadRequest());
+            mvc.perform(get(path).param("page", "-1").session(session(user)))
+                    .andExpect(status().isBadRequest());
+            mvc.perform(get(path).param("page", "2147483647").session(session(user)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content.length()").value(0));
+        }
+        mvc.perform(
+                        get("/api/v1/me/participations")
+                                .param("period", "INVALID")
+                                .session(session(user)))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/me/gatherings").param("scope", "INVALID").session(session(user)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void sessionTitlesAreRequiredAndReturnedForFirstAndFollowingSessions() throws Exception {
         long first = create(true, 3);
         long gathering =
