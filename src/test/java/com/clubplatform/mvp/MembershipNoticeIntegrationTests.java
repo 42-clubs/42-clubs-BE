@@ -126,10 +126,10 @@ class MembershipNoticeIntegrationTests {
     @Test
     void noticePublicReadsScopedWritingAndSoftDelete() throws Exception {
         String uri = "/api/v1/clubs/" + club + "/notices";
-        String body = "{\"title\":\"Notice\",\"content\":\"Body\"}";
+        String body = "{\"title\":\"Notice\",\"content\":\"Body\",\"visibility\":\"PUBLIC\"}";
         mvc.perform(
                         post(uri)
-                                .session(session(admin))
+                                .session(session(other))
                                 .with(csrf())
                                 .contentType("application/json")
                                 .content(body))
@@ -156,13 +156,13 @@ class MembershipNoticeIntegrationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].title").value("Notice"))
                 .andExpect(jsonPath("$.content[0].content").doesNotExist());
-        mvc.perform(get("/api/v1/notices/" + id))
+        mvc.perform(get(uri + "/" + id))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.authorId").value(user));
         jdbc.update("UPDATE notices SET deleted_at=now() WHERE id=?", id);
         mvc.perform(get(uri))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(0));
-        mvc.perform(get("/api/v1/notices/" + id)).andExpect(status().isNotFound());
+        mvc.perform(get(uri + "/" + id)).andExpect(status().isNotFound());
     }
 }

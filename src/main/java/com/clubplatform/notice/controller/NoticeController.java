@@ -23,20 +23,24 @@ public class NoticeController {
             @PathVariable("clubId") @Min(1) long clubId,
             @RequestBody @Valid NoticeRequest request) {
         long id = service.create(actor.userId(), clubId, request);
-        return ResponseEntity.created(URI.create("/api/v1/notices/" + id))
+        return ResponseEntity.created(URI.create("/api/v1/clubs/" + clubId + "/notices/" + id))
                 .body(new CreatedResponse(id));
     }
 
     @GetMapping("/api/v1/clubs/{clubId}/notices")
     public PageResponse<NoticeSummary> list(
+            @AuthenticationPrincipal AuthenticatedUser actor,
             @PathVariable("clubId") @Min(1) long clubId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        return service.list(clubId, page, size);
+        return service.list(actor == null ? null : actor.userId(), clubId, page, size);
     }
 
-    @GetMapping("/api/v1/notices/{noticeId}")
-    public NoticeResponse detail(@PathVariable("noticeId") @Min(1) long noticeId) {
-        return service.detail(noticeId);
+    @GetMapping("/api/v1/clubs/{clubId}/notices/{noticeId}")
+    public NoticeResponse detail(
+            @AuthenticationPrincipal AuthenticatedUser actor,
+            @PathVariable("clubId") @Min(1) long clubId,
+            @PathVariable("noticeId") @Min(1) long noticeId) {
+        return service.detail(actor == null ? null : actor.userId(), clubId, noticeId);
     }
 }

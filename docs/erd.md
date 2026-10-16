@@ -1,16 +1,16 @@
 # 데이터 모델과 ERD
 
 실제 DB에는 `users`([V1](../src/main/resources/db/migration/V1__create_users.sql))와 `clubs`([V2](../src/main/resources/db/migration/V2__create_clubs.sql)), `club_managers`([V3](../src/main/resources/db/migration/V3__add_super_admin_and_club_managers.sql))가 있습니다. V3는 users.role CHECK에도 SUPER_ADMIN을 추가합니다.
-V4에 club_members, V5에 notices, V6에 activities·activity_images·activity_participants·image_uploads, V7에 gatherings·gathering_sessions·gathering_session_participants를 구현했습니다. 부원·기본 출결은 아래 MVP 설계에 포함하고 참가 승인제·고정 멤버는 [후속 스키마](future-design.md#후속-스키마)에 분리합니다.
+V4에 club_members, V5에 notices, V6에 activities·activity_images·activity_participants·image_uploads, V7에 gatherings·gathering_sessions·gathering_session_participants, V8에 notices.visibility, V9에 announcements를 구현했습니다. 부원·기본 출결은 아래 MVP 설계에 포함하고 참가 승인제·고정 멤버는 [후속 스키마](future-design.md#후속-스키마)에 분리합니다.
 
 - [관계도](#관계도) · [공통 규칙](#공통-규칙)
 - 구현됨: [users](#users) · [clubs](#clubs) · [관리 권한](#club_managers)
-- 구현됨: [부원](#club_members) · [활동](#activities) · [공지](#notices) · [소모임](#gatherings) · [회차](#gathering_sessions) · [회차 참가](#gathering_session_participants) · [활동 참가](#activity_participants) · [사진](#activity_images)
+- 구현됨: [부원](#club_members) · [활동](#activities) · [동아리 공지](#notices) · [운영 공지](#announcements) · [소모임](#gatherings) · [회차](#gathering_sessions) · [회차 참가](#gathering_session_participants) · [활동 참가](#activity_participants) · [사진](#activity_images)
 - [인덱스](#초기-인덱스) · [잠금·정리 정책](#구현된-잠금정리-정책)
 
 ## 관계도
 
-아래 관계는 V1~V7에 구현되어 있습니다. 아래 도식에는 부원·기본 출결을 포함하며 고정 멤버 관계는 후속 설계입니다.
+아래 관계는 V1~V9에 구현되어 있습니다. 아래 도식에는 부원·기본 출결을 포함하며 고정 멤버 관계는 후속 설계입니다.
 
 ```mermaid
 erDiagram
@@ -22,6 +22,7 @@ erDiagram
     clubs ||--o{ notices : club_id
     users ||--o{ activities : "author_id / organizer_id"
     users ||--o{ notices : author_id
+    users ||--o{ announcements : author_id
     activities ||--o{ activity_images : activity_id
     activities ||--o{ activity_participants : activity_id
     users ||--o{ activity_participants : user_id
@@ -154,11 +155,27 @@ V3로 구현되었습니다. 동아리별 조회용 INDEX(club_id)도 적용했�
 | author_id | BIGINT | O | FK → users.id, 최초 작성자 |
 | title | VARCHAR(200) | O | 제목 |
 | content | TEXT | O | 공지 내용 |
+| visibility | VARCHAR(20) | O | MEMBERS_ONLY / PUBLIC, 기본 MEMBERS_ONLY |
 | created_at | TIMESTAMPTZ | O | 등록 시각 |
 | updated_at | TIMESTAMPTZ | O | 수정 시각 |
 | deleted_at | TIMESTAMPTZ | X | NULL이면 미삭제, 값이 있으면 논리 삭제 시각 |
 
-작성 권한은 현재 club_managers 관계로 검사합니다. deleted_at은 V5에 포함하며 삭제 실행은 후속입니다.
+V8에서 visibility VARCHAR(20) NOT NULL DEFAULT 'MEMBERS_ONLY'와 허용값 CHECK를 추가했습니다. 기존 공지도 MEMBERS_ONLY로 전환합니다. 작성은 ADMIN·SUPER_ADMIN 또는 해당 ACTIVE 동아리의 현재 회장 관계로 검사합니다. 조회는 visibility와 현재 부원·관리 권한으로 필터링합니다. deleted_at은 V5에 포함하며 삭제 실행은 후속입니다.
+
+## announcements
+
+V9에 별도 운영 공지 테이블을 추가했습니다. 동아리 공지와 독립된 ID를 사용하며 club_id·visibility는 두지 않습니다.
+
+| 컬럼 | 타입 | 필수 | 제약 및 의미 |
+| --- | --- | --- | --- |
+| id | BIGINT | O | 생성형 PK |
+| author_id | BIGINT | O | FK → users.id, 작성한 운영진 |
+| title | VARCHAR(200) | O | 제목 |
+| content | TEXT | O | 본문 |
+| created_at / updated_at | TIMESTAMPTZ | O | 작성·수정 시각 |
+| deleted_at | TIMESTAMPTZ | X | 미삭제 조회 조건 |
+
+INDEX(created_at DESC, id DESC)로 최신순 목록을 지원합니다. 작성자의 현재 운영 권한은 서비스에서 검사하고 공개 조회에는 회원 관계 조건을 두지 않습니다.
 
 ## gatherings
 

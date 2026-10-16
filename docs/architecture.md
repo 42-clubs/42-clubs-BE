@@ -24,6 +24,7 @@ flowchart TB
             Club[club]
             Activity[activity]
             Notice[notice]
+            Announcement[announcement]
             Gathering[gathering]
         end
         subgraph Layers[각 기능 내부의 계층]
@@ -49,7 +50,8 @@ flowchart TB
 | club | 동아리 기본 정보·운영 상태·기존 모집 정보, 관리 권한·부원 등록·명단 |
 | activity | 동아리 활동·사진·선착순 참가·취소·기본 출결 |
 | gathering | 소모임·첫 회차 동시 생성, 다음 회차 추가·조회, 회차별 참가·취소·출결 |
-| notice | 동아리별 공지사항 |
+| notice | 동아리별 공지, 공개 범위·권한별 조회 |
+| announcement | 메인 화면 운영 공지, 운영진 작성·공개 조회 |
 | global | 기술 공통 설정, 예외 처리, 보안 인프라 |
 
 ClubManager는 별도 최상위 기능으로 만들지 않고 우선 club의 책임으로 봅니다.

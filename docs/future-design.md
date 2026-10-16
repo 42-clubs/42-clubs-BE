@@ -107,7 +107,7 @@ MVP는 CONFIRMED/CANCELLED와 선착순 참가·취소·재참가만 구현합�
 
 ## 게시 및 아카이브 정책 — 확정
 
-- 활동·공지는 임시저장 없이 등록 즉시 공개합니다.
+- 활동은 임시저장 없이 등록 즉시 공개합니다. 공지는 현재 [공개 범위 정책](domain-model.md#운영-공지와-동아리-공지--확정)을 따릅니다.
 - 동아리는 물리 삭제하지 않고 아카이브 상태로 보존합니다.
 - 운영진만 아카이브·재활성화할 수 있습니다.
 - 아카이브 동아리는 일반 목록에서 기본 제외하고 아카이브 목록에서 조회합니다. 기존 동아리 상세와 삭제되지 않은 활동·공지는 열람할 수 있습니다.
@@ -219,8 +219,8 @@ MVP는 CONFIRMED/CANCELLED와 선착순 참가·취소·재참가만 구현합�
 | PATCH | /activities/{activityId} | 활동 내용·주최자 변경 | ACTIVE인 소속 동아리 관리자 |
 | DELETE | /activities/{activityId} | 활동 논리 삭제 — 여유 시 후속, MVP 제외 | ACTIVE인 소속 동아리 관리자 |
 | PUT | /activities/{activityId}/participants/{userId} | 주최자 수동 참가자 등록 — 핵심 MVP 제외 | 해당 활동 주최자 |
-| PATCH | /notices/{noticeId} | 공지 수정 | ACTIVE인 소속 동아리 관리자 |
-| DELETE | /notices/{noticeId} | 공지 논리 삭제 — 여유 시 후속, MVP 제외 | ACTIVE인 소속 동아리 관리자 |
+| PATCH | /clubs/{clubId}/notices/{noticeId} | 공지 수정 | ACTIVE인 소속 동아리 관리자 |
+| DELETE | /clubs/{clubId}/notices/{noticeId} | 공지 논리 삭제 — 여유 시 후속, MVP 제외 | ACTIVE인 소속 동아리 관리자 |
 
 삭제 후 본인 기록은 `/me/activities`, 주최자 관리 명단은 `/activities/{activityId}/participants`로 조회하는 초안입니다. 삭제된 활동의 변경은 409로 처리합니다.
 

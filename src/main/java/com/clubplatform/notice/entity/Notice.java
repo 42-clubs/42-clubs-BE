@@ -33,11 +33,22 @@ public class Notice {
 
     private Instant deletedAt;
 
-    public Notice(long clubId, long authorId, String title, String content, Instant now) {
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private NoticeVisibility visibility;
+
+    public Notice(
+            long clubId,
+            long authorId,
+            String title,
+            String content,
+            NoticeVisibility visibility,
+            Instant now) {
         this.clubId = clubId;
         this.authorId = authorId;
         this.title = title;
         this.content = content;
+        this.visibility = visibility == null ? NoticeVisibility.MEMBERS_ONLY : visibility;
         createdAt = now;
         updatedAt = now;
     }

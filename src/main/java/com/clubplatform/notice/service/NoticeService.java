@@ -22,22 +22,25 @@ public class NoticeService {
 
     @Transactional
     public long create(long actorId, long clubId, NoticeRequest request) {
-        clubs.requireManager(actorId, clubId);
+        clubs.requireNoticeWriter(actorId, clubId);
         return notices.save(
                         new Notice(
                                 clubId,
                                 actorId,
                                 request.title(),
                                 request.content(),
+                                request.visibility(),
                                 clock.instant()))
                 .getId();
     }
 
-    public PageResponse<NoticeSummary> list(long clubId, int page, int size) {
+    public PageResponse<NoticeSummary> list(Long actorId, long clubId, int page, int size) {
         clubs.requireExisting(clubId);
+        boolean includePrivate = clubs.canReadPrivateNotices(actorId, clubId);
         return PageResponse.from(
-                notices.findByClubIdAndDeletedAtIsNull(
+                notices.findVisible(
                                 clubId,
+                                includePrivate,
                                 PageRequest.of(
                                         page,
                                         size,
@@ -48,12 +51,14 @@ public class NoticeService {
                                                 n.getId(),
                                                 n.getClubId(),
                                                 n.getTitle(),
+                                                n.getVisibility(),
                                                 n.getCreatedAt())));
     }
 
-    public NoticeResponse detail(long id) {
+    public NoticeResponse detail(Long actorId, long clubId, long id) {
+        boolean includePrivate = clubs.canReadPrivateNotices(actorId, clubId);
         var n =
-                notices.findByIdAndDeletedAtIsNull(id)
+                notices.findVisibleById(clubId, id, includePrivate)
                         .orElseThrow(() -> new ResourceNotFoundException("공지를 찾을 수 없습니다."));
         return new NoticeResponse(
                 n.getId(),
@@ -61,6 +66,7 @@ public class NoticeService {
                 n.getAuthorId(),
                 n.getTitle(),
                 n.getContent(),
+                n.getVisibility(),
                 n.getCreatedAt());
     }
 }

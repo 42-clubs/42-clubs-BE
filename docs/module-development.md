@@ -65,6 +65,12 @@ OAuth 인가 요청은 Spring Security의 기본 서버 세션 저장소를 사�
 
 `ClubPermissionService.requireManager(actorId, clubId)`는 현재 DB에서 대상 동아리 존재(없으면 404), ACTIVE 상태와 해당 사용자의 ClubManager 관계(없거나 ARCHIVED면 403)를 확인합니다. USER/ADMIN/SUPER_ADMIN 모두 같은 관계 조건을 적용하고 제거된 회장 관계는 다음 요청부터 반영합니다. 다른 기능은 이 서비스를 호출하며 club Repository를 직접 참조하지 않습니다. 부원 명단 권한은 ClubMembershipService, 참가·출결 주최자 권한은 ActivityParticipationService·SessionParticipationService에서 검사합니다.
 
+## 실제 구현: 공지 권한과 조회 필터
+
+- NoticeService는 ClubPermissionService.requireNoticeWriter로 ACTIVE 동아리 회장 또는 운영진의 작성을 허용합니다. 활동 작성의 requireManager는 기존 회장 조건을 유지합니다.
+- 공지 조회는 canReadPrivateNotices로 현재 부원·회장·운영 권한을 확인하고, NoticeRepository가 소속·삭제·공개 범위를 WHERE 조건으로 필터링한 뒤 페이지·전체 개수를 계산합니다. 접근 불가 상세는 404입니다.
+- AnnouncementService는 user의 requireAdmin으로 작성 권한을 검사하며 공개 조회에 동아리 조건을 두지 않습니다.
+
 ## 실제 구현: 동아리 활동 등록
 
 ```text

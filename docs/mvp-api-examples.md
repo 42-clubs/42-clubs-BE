@@ -22,7 +22,7 @@ ADMIN·SUPER_ADMIN은 본문 없이 요청하고 204를 받습니다. `GET /api/
 {"content":[{"id":2,"intraLogin":"example","displayName":"예시"}],"page":0,"size":20,"totalElements":1,"totalPages":1}
 ```
 
-## 공지 생성 → 공개 조회
+## 동아리 공지 생성 → 권한별 조회
 
 ```http
 POST /api/v1/clubs/1/notices
@@ -30,13 +30,38 @@ Content-Type: application/json
 Cookie: JSESSIONID=...
 X-CSRF-TOKEN: ...
 
-{"title":"정기 모임 안내","content":"모임 내용을 안내합니다."}
+{"title":"정기 모임 안내","content":"모임 내용을 안내합니다.","visibility":"MEMBERS_ONLY"}
 ```
 
-해당 동아리 회장의 요청은 201, `Location: /api/v1/notices/10`, `{"id":10}`을 반환합니다. 목록 `GET /api/v1/clubs/1/notices`와 상세 `GET /api/v1/notices/10`은 로그인 없이 조회합니다.
+해당 ACTIVE 동아리 회장 또는 운영진의 요청은 201, `Location: /api/v1/clubs/1/notices/10`, `{"id":10}`을 반환합니다. 목록 `GET /api/v1/clubs/1/notices`와 상세 `GET /api/v1/clubs/1/notices/10`은 현재 사용자의 부원·관리 관계와 공개 범위를 검사합니다. 기본 비공개 공지는 ACTIVE 부원·해당 회장·운영진만 조회하며 외부 상세 요청은 404입니다.
 
 ```json
-{"id":10,"clubId":1,"authorId":2,"title":"정기 모임 안내","content":"모임 내용을 안내합니다.","createdAt":"2030-05-01T00:00:00Z"}
+{"id":10,"clubId":1,"authorId":2,"title":"정기 모임 안내","content":"모임 내용을 안내합니다.","visibility":"MEMBERS_ONLY","createdAt":"2030-05-01T00:00:00Z"}
+```
+
+visibility를 생략하거나 null로 보내도 MEMBERS_ONLY입니다. 외부 공개하려면 PUBLIC을 지정합니다. 익명·외부인의 목록에는 PUBLIC만 포함되고 페이지 전체 개수에서도 비공개 글은 제외됩니다.
+
+## 메인 화면 운영 공지
+
+```http
+POST /api/v1/announcements
+Content-Type: application/json
+Cookie: JSESSIONID=...
+X-CSRF-TOKEN: ...
+
+{"title":"동아리 서류 제출기간","content":"기간 내 활동 서류를 제출해 주세요."}
+```
+
+ADMIN·SUPER_ADMIN만 작성하며 201·`Location: /api/v1/announcements/10`·`{"id":10}`을 반환합니다. 메인 화면은 `GET /api/v1/announcements?page=0&size=5`로 최신 공지를 조회합니다. 동아리 가입·로그인 없이 조회하며 동아리 공지는 이 목록에 섞이지 않습니다.
+
+```json
+{"content":[{"id":10,"title":"동아리 서류 제출기간","createdAt":"2030-05-01T00:00:00Z"}],"page":0,"size":5,"totalElements":1,"totalPages":1}
+```
+
+`GET /api/v1/announcements/10` 상세:
+
+```json
+{"id":10,"authorId":2,"title":"동아리 서류 제출기간","content":"기간 내 활동 서류를 제출해 주세요.","createdAt":"2030-05-01T00:00:00Z"}
 ```
 
 ## 활동 생성 → 공개 상세 → 참가·출결
@@ -103,6 +128,10 @@ X-CSRF-TOKEN: ...
 ```json
 {"sessionId":40,"gatheringId":30,"startsAt":"2030-05-02T00:00:00Z","endsAt":"2030-05-02T02:00:00Z","recruitmentOpensAt":"2030-05-01T00:00:00Z","recruitmentClosesAt":"2030-05-01T23:00:00Z","location":"캠퍼스","capacity":6,"currentParticipantCount":1,"remainingCapacity":5,"recruiting":true,"dDay":"D-1","cancelled":false}
 ```
+
+## 경로 전환 확인
+
+공지 상세에 clubId를 포함합니다. 예를 들어 동아리 1의 공지를 `/api/v1/clubs/2/notices/10`으로 조회하면 404입니다. 기존 `/api/v1/notices/10` 경로는 제거되었습니다. 활동 경로 통일은 다음 변경에서 적용합니다.
 
 ## 프론트 호출 시 공통 처리
 

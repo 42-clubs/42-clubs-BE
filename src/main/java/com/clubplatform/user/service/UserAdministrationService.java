@@ -81,9 +81,13 @@ public class UserAdministrationService {
         target.changeAdminRole(granted);
     }
 
-    public void requireAdmin(long actorId) {
+    public boolean isAdmin(long actorId) {
         var role = requireUser(actorId).getRole();
-        if (role != UserRole.ADMIN && role != UserRole.SUPER_ADMIN) {
+        return role == UserRole.ADMIN || role == UserRole.SUPER_ADMIN;
+    }
+
+    public void requireAdmin(long actorId) {
+        if (!isAdmin(actorId)) {
             throw new AccessDeniedException("운영 권한이 필요합니다.");
         }
     }
