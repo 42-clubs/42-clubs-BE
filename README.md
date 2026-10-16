@@ -62,6 +62,7 @@ Spotless는 Google Java Format AOSP 스타일을 적용하며 빌드 중에는 �
 [MVP 구현 계획](docs/mvp-implementation-plan.md)의 0~7단계와 업무 API 34개를 구현했습니다. 실제 42 로그인·프론트엔드 연동, 운영 초기 데이터 입력과 사진 저장 디렉터리·이미지 조회 주소 설정은 배포 환경에서 확인해야 합니다.
 사진은 기본적으로 호스트 실행 시 `./data/photos`, Compose에서는 `photo_data` 볼륨에 저장하며 `http://localhost:8080/api/v1/photos/activities/{filename}`으로 조회합니다. AWS 계정·자격증명 없이 로컬 평가가 가능합니다. 다른 호스트·포트에서는 `PHOTO_LOCAL_BASE_URL`을 변경합니다. 호스트 실행에서는 S3를 `PHOTO_STORAGE_MODE=s3`로 선택할 수 있고 기본 Compose는 로컬 볼륨을 사용합니다.
 메인 운영 공지는 비로그인 공개이며 동아리 공지는 기본 비공개입니다. 공지·활동 상세와 활동 참가·출결 경로는 clubId 아래로 통일했습니다. 기존 경로는 제거했으므로 [전환 계약](docs/api-endpoints.md#공지활동-경로-전환)을 확인합니다.
+소모임 회차 상세·참가·출결도 `/api/v1/gatherings/{gatheringId}/sessions/{sessionId}` 아래로 통일했습니다. 기존 경로는 [소모임 회차 전환 계약](docs/api-endpoints.md#소모임-회차-경로-전환)을 따릅니다.
 글 수정·일정 변경 등 확장은 [후속 설계](docs/future-design.md)에서 확인합니다.
 
 ## 문서 안내

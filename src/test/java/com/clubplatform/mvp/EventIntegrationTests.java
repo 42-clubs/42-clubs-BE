@@ -205,8 +205,17 @@ class EventIntegrationTests {
     }
 
     String base(boolean gathering, long id) {
+        long gatheringId =
+                gathering
+                        ? jdbc.queryForObject(
+                                "SELECT gathering_id FROM gathering_sessions WHERE id=?",
+                                Long.class,
+                                id)
+                        : 0;
         return "/api/v1/"
-                + (gathering ? "gathering-sessions/" : "clubs/" + club + "/activities/")
+                + (gathering
+                        ? "gatherings/" + gatheringId + "/sessions/"
+                        : "clubs/" + club + "/activities/")
                 + id;
     }
 
@@ -365,7 +374,14 @@ class EventIntegrationTests {
                             () -> {
                                 try {
                                     gate.await(10, TimeUnit.SECONDS);
-                                    if (gathering) sessionParticipation.join(actor, id);
+                                    if (gathering)
+                                        sessionParticipation.join(
+                                                actor,
+                                                jdbc.queryForObject(
+                                                        "SELECT gathering_id FROM gathering_sessions WHERE id=?",
+                                                        Long.class,
+                                                        id),
+                                                id);
                                     else activityParticipation.join(actor, club, id);
                                     success.incrementAndGet();
                                 } catch (ConflictException e) {
@@ -438,7 +454,15 @@ class EventIntegrationTests {
                                 .with(csrf())
                                 .contentType("application/json")
                                 .content(sessionJson(3)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andExpect(
+                        header().string(
+                                        "Location",
+                                        path
+                                                + "/"
+                                                + jdbc.queryForObject(
+                                                        "SELECT max(id) FROM gathering_sessions",
+                                                        Long.class)));
         long second = jdbc.queryForObject("SELECT max(id) FROM gathering_sessions", Long.class);
         assertThat(second).isNotEqualTo(first);
         for (long id : List.of(first, second))
@@ -679,7 +703,14 @@ class EventIntegrationTests {
                             () -> {
                                 try {
                                     gate.await(10, TimeUnit.SECONDS);
-                                    if (gathering) sessionParticipation.join(user, id);
+                                    if (gathering)
+                                        sessionParticipation.join(
+                                                user,
+                                                jdbc.queryForObject(
+                                                        "SELECT gathering_id FROM gathering_sessions WHERE id=?",
+                                                        Long.class,
+                                                        id),
+                                                id);
                                     else activityParticipation.join(user, club, id);
                                     success.incrementAndGet();
                                 } catch (ConflictException e) {
@@ -781,6 +812,56 @@ class EventIntegrationTests {
                     .andExpect(status().isNotFound());
         mvc.perform(
                         post("/api/v1/activities/" + id + "/participants")
+                                .session(session(other))
+                                .with(csrf()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void sessionRoutesRequireMatchingGatheringBeforeAnyParticipantReadOrMutation()
+            throws Exception {
+        long id = create(true, 3);
+        long otherSession = create(true, 3);
+        long wrongGathering =
+                jdbc.queryForObject(
+                        "SELECT gathering_id FROM gathering_sessions WHERE id=?",
+                        Long.class,
+                        otherSession);
+        String correct = base(true, id),
+                wrong = "/api/v1/gatherings/" + wrongGathering + "/sessions/" + id;
+        mvc.perform(post(correct + "/participants").session(session(user)).with(csrf()))
+                .andExpect(status().isNoContent());
+        mvc.perform(get(wrong)).andExpect(status().isNotFound());
+        mvc.perform(get(wrong + "/participants/me").session(session(user)))
+                .andExpect(status().isNotFound());
+        mvc.perform(get(wrong + "/participants").session(session(owner)))
+                .andExpect(status().isNotFound());
+        mvc.perform(post(wrong + "/participants").session(session(other)).with(csrf()))
+                .andExpect(status().isNotFound());
+        mvc.perform(delete(wrong + "/participants/me").session(session(user)).with(csrf()))
+                .andExpect(status().isNotFound());
+        mvc.perform(
+                        patch(wrong + "/participants/" + user + "/attendance")
+                                .session(session(owner))
+                                .with(csrf())
+                                .contentType("application/json")
+                                .content("{\"attendanceStatus\":\"PRESENT\"}"))
+                .andExpect(status().isNotFound());
+        mvc.perform(get(correct + "/participants/me").session(session(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.attendanceStatus").value("UNCHECKED"));
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM gathering_session_participants WHERE session_id=?",
+                                Integer.class,
+                                id))
+                .isEqualTo(2);
+        for (String suffix : List.of("", "/participants", "/participants/me"))
+            mvc.perform(get("/api/v1/gathering-sessions/" + id + suffix).session(session(owner)))
+                    .andExpect(status().isNotFound());
+        mvc.perform(
+                        post("/api/v1/gathering-sessions/" + id + "/participants")
                                 .session(session(other))
                                 .with(csrf()))
                 .andExpect(status().isNotFound());

@@ -65,7 +65,7 @@ public class SecurityConfig {
                                                 "/api/v1/gatherings",
                                                 "/api/v1/gatherings/{gatheringId}",
                                                 "/api/v1/gatherings/{gatheringId}/sessions",
-                                                "/api/v1/gathering-sessions/{sessionId}")
+                                                "/api/v1/gatherings/{gatheringId}/sessions/{sessionId}")
                                         .permitAll()
                                         .requestMatchers("/", "/error")
                                         .permitAll()

@@ -102,9 +102,10 @@ public class GatheringService {
                 g.getId(), g.getOrganizerId(), g.getTitle(), g.getContent(), null, null);
     }
 
-    public SessionResponse session(long id) {
+    public SessionResponse session(long gatheringId, long id) {
         var s = sessions.findById(id).orElseThrow(() -> missing());
-        requireGathering(s.getGatheringId());
+        if (s.getGatheringId() != gatheringId) throw missing();
+        requireGathering(gatheringId);
         return response(
                 s, participants.countBySessionIdAndStatus(id, "CONFIRMED"), clock.instant());
     }

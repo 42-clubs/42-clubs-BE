@@ -33,7 +33,7 @@ public class GatheringController {
             @RequestBody @Valid SessionRequest request) {
         var result = service.addSession(actor.userId(), id, request);
         return ResponseEntity.created(
-                        URI.create("/api/v1/gathering-sessions/" + result.sessionId()))
+                        URI.create("/api/v1/gatherings/" + id + "/sessions/" + result.sessionId()))
                 .body(result);
     }
 
@@ -59,8 +59,10 @@ public class GatheringController {
         return service.sessions(id, filter, page, size);
     }
 
-    @GetMapping("/api/v1/gathering-sessions/{sessionId}")
-    public SessionResponse session(@PathVariable("sessionId") @Min(1) long id) {
-        return service.session(id);
+    @GetMapping("/api/v1/gatherings/{gatheringId}/sessions/{sessionId}")
+    public SessionResponse session(
+            @PathVariable("gatheringId") @Min(1) long gatheringId,
+            @PathVariable("sessionId") @Min(1) long id) {
+        return service.session(gatheringId, id);
     }
 }

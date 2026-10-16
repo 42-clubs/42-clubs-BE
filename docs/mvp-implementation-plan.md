@@ -162,7 +162,7 @@ V8에서 동아리 공지에 visibility를 추가하고 기존 글을 MEMBERS_ON
 | GET | /gatherings/{gatheringId} | 모임 소개·기본 정보 |
 | POST | /gatherings/{gatheringId}/sessions | 같은 모임에 다음 회차 생성 |
 | GET | /gatherings/{gatheringId}/sessions | 예정·지난 회차 목록 |
-| GET | /gathering-sessions/{sessionId} | 회차 상세 |
+| GET | /gatherings/{gatheringId}/sessions/{sessionId} | 회차 상세 |
 
 **확정한 구현**
 
@@ -182,11 +182,11 @@ V8에서 동아리 공지에 visibility를 추가하고 기존 글을 MEMBERS_ON
 
 | 메서드 | 경로 | 목적 |
 | --- | --- | --- |
-| POST | /gathering-sessions/{sessionId}/participants | 본인 참가·재참가 |
-| DELETE | /gathering-sessions/{sessionId}/participants/me | 본인 참가 취소 |
-| GET | /gathering-sessions/{sessionId}/participants/me | 본인 참가·출결 상태 |
-| GET | /gathering-sessions/{sessionId}/participants | 주최자의 회차 참가자·출결 명단 |
-| PATCH | /gathering-sessions/{sessionId}/participants/{userId}/attendance | 주최자의 회차 출결 기록 |
+| POST | /gatherings/{gatheringId}/sessions/{sessionId}/participants | 본인 참가·재참가 |
+| DELETE | /gatherings/{gatheringId}/sessions/{sessionId}/participants/me | 본인 참가 취소 |
+| GET | /gatherings/{gatheringId}/sessions/{sessionId}/participants/me | 본인 참가·출결 상태 |
+| GET | /gatherings/{gatheringId}/sessions/{sessionId}/participants | 주최자의 회차 참가자·출결 명단 |
+| PATCH | /gatherings/{gatheringId}/sessions/{sessionId}/participants/{userId}/attendance | 주최자의 회차 출결 기록 |
 
 **작업**
 

@@ -24,12 +24,11 @@ public class SessionParticipationService {
     private final Clock clock;
 
     @Transactional
-    public void join(long actorId, long id) {
+    public void join(long actorId, long gatheringId, long id) {
         var resource = sessions.findForUpdate(id).orElseThrow(() -> missing());
+        if (resource.getGatheringId() != gatheringId) throw missing();
         var gathering =
-                gatherings
-                        .findByIdAndDeletedAtIsNull(resource.getGatheringId())
-                        .orElseThrow(() -> missing());
+                gatherings.findByIdAndDeletedAtIsNull(gatheringId).orElseThrow(() -> missing());
         long organizerId = gathering.getOrganizerId();
         var now = clock.instant();
         resource.requireRecruiting(now);
@@ -43,12 +42,11 @@ public class SessionParticipationService {
     }
 
     @Transactional
-    public void cancel(long actorId, long id) {
+    public void cancel(long actorId, long gatheringId, long id) {
         var resource = sessions.findForUpdate(id).orElseThrow(() -> missing());
+        if (resource.getGatheringId() != gatheringId) throw missing();
         var gathering =
-                gatherings
-                        .findByIdAndDeletedAtIsNull(resource.getGatheringId())
-                        .orElseThrow(() -> missing());
+                gatherings.findByIdAndDeletedAtIsNull(gatheringId).orElseThrow(() -> missing());
         long organizerId = gathering.getOrganizerId();
         var now = clock.instant();
         resource.requireRecruiting(now);
@@ -57,12 +55,11 @@ public class SessionParticipationService {
         participants.findBySessionIdAndUserId(id, actorId).orElseThrow(() -> missing()).cancel(now);
     }
 
-    public ParticipationResponse mine(long actorId, long id) {
+    public ParticipationResponse mine(long actorId, long gatheringId, long id) {
         var resource = sessions.findById(id).orElseThrow(() -> missing());
+        if (resource.getGatheringId() != gatheringId) throw missing();
         var gathering =
-                gatherings
-                        .findByIdAndDeletedAtIsNull(resource.getGatheringId())
-                        .orElseThrow(() -> missing());
+                gatherings.findByIdAndDeletedAtIsNull(gatheringId).orElseThrow(() -> missing());
         long organizerId = gathering.getOrganizerId();
         return participants
                 .findBySessionIdAndUserId(id, actorId)
@@ -70,12 +67,12 @@ public class SessionParticipationService {
                 .orElse(new ParticipationResponse(null, null));
     }
 
-    public PageResponse<ParticipantResponse> roster(long actorId, long id, int page, int size) {
+    public PageResponse<ParticipantResponse> roster(
+            long actorId, long gatheringId, long id, int page, int size) {
         var resource = sessions.findById(id).orElseThrow(() -> missing());
+        if (resource.getGatheringId() != gatheringId) throw missing();
         var gathering =
-                gatherings
-                        .findByIdAndDeletedAtIsNull(resource.getGatheringId())
-                        .orElseThrow(() -> missing());
+                gatherings.findByIdAndDeletedAtIsNull(gatheringId).orElseThrow(() -> missing());
         long organizerId = gathering.getOrganizerId();
         requireOrganizer(actorId, organizerId);
         var rows = participants.findBySessionId(id, PageRequest.of(page, size, Sort.by("userId")));
@@ -97,12 +94,11 @@ public class SessionParticipationService {
     }
 
     @Transactional
-    public void attendance(long actorId, long id, long userId, String value) {
+    public void attendance(long actorId, long gatheringId, long id, long userId, String value) {
         var resource = sessions.findForUpdate(id).orElseThrow(() -> missing());
+        if (resource.getGatheringId() != gatheringId) throw missing();
         var gathering =
-                gatherings
-                        .findByIdAndDeletedAtIsNull(resource.getGatheringId())
-                        .orElseThrow(() -> missing());
+                gatherings.findByIdAndDeletedAtIsNull(gatheringId).orElseThrow(() -> missing());
         long organizerId = gathering.getOrganizerId();
         requireOrganizer(actorId, organizerId);
         if (resource.getCancelledAt() != null)

@@ -382,7 +382,7 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 | GET | /api/v1/gatherings/{gatheringId} | 소모임 소개·기본 정보 | 공개 | 없음 | 200, GatheringResponse |
 | POST | /api/v1/gatherings/{gatheringId}/sessions | 다음 회차·주최자 참가 생성 | 해당 소모임 주최자 | SessionRequest JSON | 201, GatheringCreated |
 | GET | /api/v1/gatherings/{gatheringId}/sessions | 회차 목록 | 공개 | 없음 | 200, Page&lt;SessionResponse&gt; |
-| GET | /api/v1/gathering-sessions/{sessionId} | 회차 상세 | 공개 | 없음 | 200, SessionResponse |
+| GET | /api/v1/gatherings/{gatheringId}/sessions/{sessionId} | 회차 상세 | 공개 | 없음 | 200, SessionResponse |
 
 **GatheringRequest**
 
@@ -404,7 +404,7 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 
 모집 공개는 회차 생성 즉시입니다. recruitmentOpensAt·organizerId는 서버가 결정하며 요청 필드가 아닙니다. 다음 회차 생성에는 session으로 감싸지 않은 SessionRequest JSON을 보냅니다. 이전 참가자·출결은 복사하지 않으며 각 회차에 주최자만 자동 참가합니다. 생성 중 실패하면 모임·회차·주최자 참가가 일부만 남지 않도록 롤백합니다.
 
-**GatheringCreated**는 `{"gatheringId":30,"sessionId":40}`입니다. 소모임 생성의 Location은 `/api/v1/gatherings/30`, 다음 회차 생성의 Location은 `/api/v1/gathering-sessions/40`입니다.
+**GatheringCreated**는 `{"gatheringId":30,"sessionId":40}`입니다. 소모임 생성의 Location은 `/api/v1/gatherings/30`, 다음 회차 생성의 Location은 `/api/v1/gatherings/30/sessions/40`입니다.
 
 **GatheringResponse**
 
@@ -452,11 +452,11 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 
 | 메서드 | 전체 경로 | 기능 | 권한 | 요청 본문 | 성공·응답 |
 | --- | --- | --- | --- | --- | --- |
-| POST | /api/v1/gathering-sessions/{sessionId}/participants | 본인 참가·재참가 | 로그인 본인 | 없음 | 204, 본문 없음 |
-| DELETE | /api/v1/gathering-sessions/{sessionId}/participants/me | 본인 참가 취소 | 로그인 본인, 주최자 제외 | 없음 | 204, 본문 없음 |
-| GET | /api/v1/gathering-sessions/{sessionId}/participants/me | 본인 참가·출결 상태 | 로그인 본인 | 없음 | 200, ParticipationResponse |
-| GET | /api/v1/gathering-sessions/{sessionId}/participants | 참가자·출결 명단 | 해당 소모임 주최자 | 없음 | 200, Page&lt;ParticipantResponse&gt; |
-| PATCH | /api/v1/gathering-sessions/{sessionId}/participants/{userId}/attendance | 참가자 출결 기록 | 해당 소모임 주최자 | AttendanceRequest JSON | 204, 본문 없음 |
+| POST | /api/v1/gatherings/{gatheringId}/sessions/{sessionId}/participants | 본인 참가·재참가 | 로그인 본인 | 없음 | 204, 본문 없음 |
+| DELETE | /api/v1/gatherings/{gatheringId}/sessions/{sessionId}/participants/me | 본인 참가 취소 | 로그인 본인, 주최자 제외 | 없음 | 204, 본문 없음 |
+| GET | /api/v1/gatherings/{gatheringId}/sessions/{sessionId}/participants/me | 본인 참가·출결 상태 | 로그인 본인 | 없음 | 200, ParticipationResponse |
+| GET | /api/v1/gatherings/{gatheringId}/sessions/{sessionId}/participants | 참가자·출결 명단 | 해당 소모임 주최자 | 없음 | 200, Page&lt;ParticipantResponse&gt; |
+| PATCH | /api/v1/gatherings/{gatheringId}/sessions/{sessionId}/participants/{userId}/attendance | 참가자 출결 기록 | 해당 소모임 주최자 | AttendanceRequest JSON | 204, 본문 없음 |
 
 명단만 page·size를 받습니다. 아래 공통 계약을 회차별로 적용하며 같은 사용자도 여러 회차에 독립적으로 참가합니다. 한 회차의 취소·출결은 다른 회차에 영향을 주지 않습니다. sessionId를 사용하는 경로에 gatheringId를 대신 보내지 않습니다.
 
@@ -550,3 +550,9 @@ UNCHECKED로 되돌리면 체크 사용자·시각을 비웁니다. PRESENT 기�
 - 기존 `/api/v1/notices/{noticeId}`, `/api/v1/activities/{activityId}`와 기존 활동 참가 하위 경로는 제거했습니다. 리다이렉트·호환 별칭이 없으므로 프론트 링크·API 호출을 함께 변경해야 합니다. 미인증 요청은 공통 보안 규칙에 따라 401/403이 먼저 반환될 수 있습니다.
 - 모든 중첩 활동 요청은 조회 쿼리에서 clubId·activityId·미삭제 조건을 함께 검사합니다. 잘못된 동아리 조합은 404이며 다른 활동의 참가·출결을 변경하지 않습니다. 활동 생성 Location도 중첩 경로입니다.
 - 공지의 기본 비공개 정책은 활동에 적용하지 않습니다. 활동의 공개 조회·본인 참가·주최자 출결 정책은 유지합니다.
+
+## 소모임 회차 경로 전환
+
+- 회차 상세·참가·취소·본인 상태·명단·출결은 `/api/v1/gatherings/{gatheringId}/sessions/{sessionId}` 아래로 통일했습니다. 회차 생성 Location도 이 경로를 반환합니다.
+- 경로의 gatheringId와 실제 회차의 소모임이 다르거나 소모임이 삭제되었으면 404입니다. 기존 회차별 참가·권한 정책은 유지합니다.
+- 기존 `/api/v1/gathering-sessions/{sessionId}` 및 하위 경로는 제거했습니다. 리다이렉트·호환 별칭이 없으므로 프론트 호출과 링크를 함께 변경해야 합니다. 미인증 요청은 공통 보안 규칙에 따라 401/403이 먼저 반환될 수 있습니다.

@@ -230,10 +230,10 @@ MVP는 CONFIRMED/CANCELLED와 선착순 참가·취소·재참가만 구현합�
 | --- | --- | --- | --- |
 | PATCH | /gatherings/{gatheringId} | 기본 정보·반복 규칙 수정 | 해당 소모임 주최자 |
 | PUT | /gatherings/{gatheringId}/cancellation | 전체 모임 취소 | 해당 소모임 주최자 |
-| PATCH | /gathering-sessions/{sessionId} | 회차 일시·장소·정원 수정 | 해당 소모임 주최자 |
-| PUT | /gathering-sessions/{sessionId}/cancellation | 해당 회차 취소 | 해당 소모임 주최자 |
+| PATCH | /gatherings/{gatheringId}/sessions/{sessionId} | 회차 일시·장소·정원 수정 | 해당 소모임 주최자 |
+| PUT | /gatherings/{gatheringId}/sessions/{sessionId}/cancellation | 해당 회차 취소 | 해당 소모임 주최자 |
 | PUT | /gatherings/{gatheringId}/recruitment | 고정 멤버 모집 공개·마감 설정 | 해당 소모임 주최자 |
-| PUT | /gathering-sessions/{sessionId}/recruitment | 회차별 모집 공개·마감 설정 | 해당 소모임 주최자 |
+| PUT | /gatherings/{gatheringId}/sessions/{sessionId}/recruitment | 회차별 모집 공개·마감 설정 | 해당 소모임 주최자 |
 
 고정 멤버 모집은 FIXED_MEMBERS, 회차별 모집은 PER_SESSION에만 적용합니다. 자동 회차 생성 범위·중복 방지·예약 공개는 확장 시 설계합니다.
 
@@ -254,9 +254,9 @@ MVP는 CONFIRMED/CANCELLED와 선착순 참가·취소·재참가만 구현합�
 
 | 메서드 | 경로 | 기능 | 권한 |
 | --- | --- | --- | --- |
-| PATCH | /gathering-sessions/{sessionId}/participants/{userId}/decision | PENDING 승인·거절 — MVP 제외 | 해당 소모임 주최자 |
+| PATCH | /gatherings/{gatheringId}/sessions/{sessionId}/participants/{userId}/decision | PENDING 승인·거절 — MVP 제외 | 해당 소모임 주최자 |
 
-FIXED_MEMBERS의 본인 회차 상태도 `/gathering-sessions/{sessionId}/participants/me`로 조회하는 초안입니다. 출결이 있는 회차 관계의 재신청은 409로 처리합니다.
+FIXED_MEMBERS의 본인 회차 상태도 `/gatherings/{gatheringId}/sessions/{sessionId}/participants/me`로 조회하는 초안입니다. 출결이 있는 회차 관계의 재신청은 409로 처리합니다.
 
 ## 후속 스키마
 
