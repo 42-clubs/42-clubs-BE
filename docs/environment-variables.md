@@ -9,13 +9,23 @@
 - 기본 로컬 DB 설정은 별도 입력 없이 실행할 수 있습니다. 실제 42 로그인을 테스트하려면 아래 인증 활성화·자격증명 설정이 필요합니다.
 - 환경변수를 변경한 뒤 백엔드를 다시 실행합니다. Compose DB의 기존 볼륨에 저장된 DB 이름·계정은 환경변수 변경만으로 재생성되지 않습니다.
 
+## Compose 진입점
+
+| 이름 | 용도 | 기본값 | 필수 조건·사용 대상·로컬 설정 |
+| --- | --- | --- | --- |
+| HTTP_BIND_ADDRESS | Nginx 공개 포트 바인딩 주소 | 127.0.0.1 | Compose; LAN/홈서버 접근 시 .env에 0.0.0.0 설정 |
+| HTTP_PORT | Nginx 호스트 HTTP 포트 | 8080 | Compose; 사용 가능한 포트로 .env에 설정하고 사진·OAuth URL도 일치 |
+| SERVER_FORWARD_HEADERS_STRATEGY | 프록시가 설정한 원래 호스트·스킴 반영 | 호스트: Spring Boot 기본값, Compose: framework | Compose 백엔드에 고정 전달; 내부 백엔드를 직접 외부에 노출하지 않음 |
+
+[전체 실행·볼륨·기존 사진 이동](docker-compose.md)을 참고합니다. Compose는 사진 저장 모드를 local, 디렉터리를 /app/data/photos로 고정하고 photo_data 볼륨을 연결합니다. PHOTO_STORAGE_MODE·PHOTO_LOCAL_DIRECTORY·S3 변수는 호스트 실행용이며 이 Compose에서는 덮어쓰지 않습니다. PHOTO_LOCAL_BASE_URL은 Compose에서도 적용합니다.
+
 ## 데이터베이스
 
 | 변수 | 사용 대상 | 기본값 | 필수 조건·용도 |
 | --- | --- | --- | --- |
-| POSTGRES_DB | Docker Compose | clubs | 생성할 DB 이름. 바꾸면 DB_URL의 DB 이름도 맞춥니다. |
-| POSTGRES_PORT | Docker Compose | 5432 | 호스트에서 접속할 PostgreSQL 포트. 바꾸면 DB_URL의 포트도 맞춥니다. |
-| DB_URL | Spring Boot | jdbc:postgresql://localhost:5432/clubs | 백엔드 JDBC 접속 주소. 운영에서는 명시적으로 설정합니다. |
+| POSTGRES_DB | Docker Compose | clubs | 생성할 DB 이름. Compose 백엔드 URL에도 자동 반영; 호스트 실행은 DB_URL의 DB 이름도 맞춤. |
+| POSTGRES_PORT | compose.dev.yaml | 5432 | IDE 개발 시 호스트 DB 포트; 기본 Compose는 DB 포트를 노출하지 않음. 호스트 DB_URL도 맞춤. |
+| DB_URL | Spring Boot | jdbc:postgresql://localhost:5432/clubs | 호스트 백엔드 JDBC 주소. Compose는 jdbc:postgresql://postgres:5432/${POSTGRES_DB}로 구성하여 이 입력을 사용하지 않음. |
 | DB_USERNAME | Spring Boot·Docker Compose | clubs | 백엔드 접속 계정·컨테이너 초기 계정. 운영에서는 명시적으로 설정합니다. |
 | DB_PASSWORD | Spring Boot·Docker Compose | clubs_local | 백엔드 접속 비밀번호·컨테이너 초기 비밀번호. 기본값은 로컬 전용입니다. |
 
@@ -47,7 +57,7 @@ export FT_REDIRECT_URI='http://localhost:8080/login/oauth2/code/42'
 export AUTH_SUCCESS_URL='http://localhost:8080/api/v1/me'
 export AUTH_COOKIE_SECURE=false
 export AUTH_COOKIE_SAME_SITE=lax
-docker compose up -d --wait
+docker compose -f compose.yaml -f compose.dev.yaml up -d --wait postgres
 ./gradlew bootRun
 ```
 
@@ -119,7 +129,7 @@ docker compose up -d --wait
 | PHOTO_S3_REGION | 버킷 리전 | ap-northeast-2 | s3 모드에서 버킷 리전과 일치 | 백엔드 |
 | PHOTO_PUBLIC_BASE_URL | 사진 조회용 HTTPS 기본 URL | 빈 값 | s3 모드에서 선택; 공개 이미지 도메인 사용 시 | 백엔드 응답·프론트 이미지 조회 |
 
-로컬 평가는 별도 환경변수 없이 `./gradlew bootRun`으로 실행합니다. 사진은 실행 작업 디렉터리 기준 `./data/photos`에 자동 생성하며 Git 추적에서 제외합니다. 프론트는 응답의 절대 URL을 그대로 사용합니다. DB 저장이 완료된 미삭제 활동 사진만 비로그인 조회할 수 있습니다. 업로드·DB 실패 파일 정리는 로컬 모드에도 동일하게 적용합니다.
+전체 Compose 실행은 [실행 안내](docker-compose.md)를 따르며 photo_data 볼륨에 저장합니다. 호스트에서 로컬 평가는 별도 사진 환경변수 없이 `./gradlew bootRun`으로 실행합니다. 사진은 실행 작업 디렉터리 기준 `./data/photos`에 자동 생성하며 Git 추적에서 제외합니다. 프론트는 응답의 절대 URL을 그대로 사용합니다. DB 저장이 완료된 미삭제 활동 사진만 비로그인 조회할 수 있습니다. 업로드·DB 실패 파일 정리는 로컬 모드에도 동일하게 적용합니다.
 
 다른 포트·호스트에서 실행할 때 `PHOTO_LOCAL_BASE_URL=http://localhost:8081`처럼 셸 또는 IDE에 설정합니다. 저장 위치는 `PHOTO_LOCAL_DIRECTORY=/절대/경로/photos`로 변경할 수 있습니다. `.env`는 자동으로 읽지 않습니다. 재시작 후에도 같은 디렉터리와 DB를 유지하면 사진이 보존됩니다. 컨테이너 실행 시 해당 디렉터리를 볼륨으로 보존합니다. 이 설정은 사진만 로컬화하며 PostgreSQL·42 로그인 설정은 기존과 같습니다.
 

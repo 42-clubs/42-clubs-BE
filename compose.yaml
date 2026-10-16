@@ -1,12 +1,59 @@
 services:
+  nginx:
+    image: nginx:stable-alpine
+    ports:
+      - "${HTTP_BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-8080}:80"
+    volumes:
+      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null 'http://127.0.0.1/api/v1/clubs?size=1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-clubs}
+      DB_USERNAME: ${DB_USERNAME:-clubs}
+      DB_PASSWORD: ${DB_PASSWORD:-clubs_local}
+      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      FT_CLIENT_ID: ${FT_CLIENT_ID:-}
+      FT_CLIENT_SECRET: ${FT_CLIENT_SECRET:-}
+      FT_REDIRECT_URI: ${FT_REDIRECT_URI:-http://localhost:8080/login/oauth2/code/42}
+      AUTH_SUCCESS_URL: ${AUTH_SUCCESS_URL:-http://localhost:5173/auth/callback}
+      AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:-http://localhost:5173}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      AUTH_COOKIE_SAME_SITE: ${AUTH_COOKIE_SAME_SITE:-lax}
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      PHOTO_STORAGE_MODE: local
+      PHOTO_LOCAL_DIRECTORY: /app/data/photos
+      PHOTO_LOCAL_BASE_URL: ${PHOTO_LOCAL_BASE_URL:-http://localhost:8080}
+    volumes:
+      - photo_data:/app/data/photos
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent --output /dev/null 'http://127.0.0.1:8080/api/v1/clubs?size=1'"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+    restart: unless-stopped
+    stop_grace_period: 30s
+
   postgres:
     image: postgres:17.6-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-clubs}
       POSTGRES_USER: ${DB_USERNAME:-clubs}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-clubs_local}
-    ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -14,6 +61,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+  photo_data:

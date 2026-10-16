@@ -6,14 +6,13 @@ Java 17, Spring Boot 3.5, Spring Security, JPA, PostgreSQL 17.6, Flyway를 사�
 
 ## 빠른 시작
 
-Java 17 JDK와 Docker Compose가 필요합니다. IDE의 Gradle JVM도 Java 17로 설정합니다.
+Docker Compose로 Nginx·백엔드·PostgreSQL을 함께 실행합니다. 컨테이너 실행에는 호스트 JDK가 필요하지 않습니다.
 
 ```sh
-docker compose up -d --wait
-./gradlew bootRun
+docker compose up -d --build --wait
 ```
 
-기본 주소는 `http://localhost:8080`입니다. 42 인증을 설정하지 않아도 동아리 공개 조회를 실행할 수 있습니다.
+Nginx 진입 주소는 `http://localhost:8080`입니다. [Compose 구성·볼륨·홈서버·IDE 실행 안내](docs/docker-compose.md)를 참고합니다. 42 인증을 설정하지 않아도 동아리 공개 조회를 실행할 수 있습니다.
 
 ```sh
 curl 'http://localhost:8080/api/v1/clubs?page=0&size=20'
@@ -24,7 +23,7 @@ curl 'http://localhost:8080/api/v1/clubs?page=0&size=20'
 
 ### 개발 환경 및 실행
 
-- 로컬 DB는 `127.0.0.1:5432`에 노출됩니다. 기본 DB·계정·비밀번호는 개발용이며 [환경변수 문서](docs/environment-variables.md#데이터베이스)에서 확인합니다.
+- 기본 Compose는 Nginx만 외부에 노출합니다. IDE 개발 시 `compose.dev.yaml`을 함께 사용해 DB를 `127.0.0.1:5432`에 노출합니다. 기본 DB·계정·비밀번호는 개발용이며 [환경변수 문서](docs/environment-variables.md#데이터베이스)에서 확인합니다.
 - 기본값은 별도 설정 없이 사용할 수 있습니다. 변경 값은 [.env.example](.env.example)을 참고해 셸 또는 IDE에 설정합니다. Spring Boot는 `.env`를 자동으로 읽지 않습니다.
 - Compose 볼륨은 재시작 후에도 유지됩니다. DB 이름·계정 변경은 기존 볼륨을 재초기화하지 않습니다. 중지는 `docker compose stop`을 사용합니다.
 - Windows에서는 `gradlew.bat`을 사용합니다. 최초 빌드에는 의존성 다운로드가 필요합니다.
@@ -58,10 +57,10 @@ Spotless는 Google Java Format AOSP 스타일을 적용하며 빌드 중에는 �
 | 역할·회장 권한 기반 | 완료: SUPER_ADMIN의 ADMIN 운영 권한 포함, ACTIVE 동아리별 회장 관계 검사, [초기 DB 입력 절차](docs/initial-data-setup.md); 사용자 검색·SUPER_ADMIN의 ADMIN/회장 권한 관리 API 구현 완료 |
 | 부원·활동·공지·소모임 | 완료: 부원 등록·명단, 동아리 공지 공개 범위·운영 공지, 활동·사진, 소모임·회차, 선착순 참가·취소·기본 출결; 사진 첨부는 기본 로컬 저장, [저장소 설정](docs/environment-variables.md#활동-사진-저장소) 필요 |
 | Swagger/OpenAPI | 미도입: Boot 3.5 호환 springdoc 2.8.x의 패치 버전 결정 필요 |
-| CI·배포 | GitHub Actions CI 미도입; 배포 대상·애플리케이션 컨테이너화·CD 미정 |
+| CI·배포 | GitHub Actions CI 미도입; Nginx·백엔드·PostgreSQL Compose 구현; 공개 배포·HTTPS·CD 미정 |
 
 [MVP 구현 계획](docs/mvp-implementation-plan.md)의 0~7단계와 업무 API 34개를 구현했습니다. 실제 42 로그인·프론트엔드 연동, 운영 초기 데이터 입력과 사진 저장 디렉터리·이미지 조회 주소 설정은 배포 환경에서 확인해야 합니다.
-사진은 기본적으로 `./data/photos`에 저장하며 `http://localhost:8080/api/v1/photos/activities/{filename}`으로 조회합니다. AWS 계정·자격증명 없이 로컬 평가가 가능합니다. 다른 호스트·포트에서는 `PHOTO_LOCAL_BASE_URL`을 변경합니다. S3는 `PHOTO_STORAGE_MODE=s3`로 선택할 수 있습니다.
+사진은 기본적으로 호스트 실행 시 `./data/photos`, Compose에서는 `photo_data` 볼륨에 저장하며 `http://localhost:8080/api/v1/photos/activities/{filename}`으로 조회합니다. AWS 계정·자격증명 없이 로컬 평가가 가능합니다. 다른 호스트·포트에서는 `PHOTO_LOCAL_BASE_URL`을 변경합니다. 호스트 실행에서는 S3를 `PHOTO_STORAGE_MODE=s3`로 선택할 수 있고 기본 Compose는 로컬 볼륨을 사용합니다.
 메인 운영 공지는 비로그인 공개이며 동아리 공지는 기본 비공개입니다. 공지·활동 상세와 활동 참가·출결 경로는 clubId 아래로 통일했습니다. 기존 경로는 제거했으므로 [전환 계약](docs/api-endpoints.md#공지활동-경로-전환)을 확인합니다.
 글 수정·일정 변경 등 확장은 [후속 설계](docs/future-design.md)에서 확인합니다.
 
@@ -77,6 +76,7 @@ Spotless는 Google Java Format AOSP 스타일을 적용하며 빌드 중에는 �
 | 실제 DB·관계도·제약조건 | [ERD](docs/erd.md) |
 | 패키지·계층·의존성·DB 운영 규칙 | [아키텍처](docs/architecture.md) |
 | 실제 코드 흐름과 구현 시 확인 사항 | [모듈 가이드](docs/module-development.md) |
+| Docker 전체 실행·Nginx·사진/DB 볼륨 | [Compose 실행](docs/docker-compose.md) |
 | 환경변수·로컬 로그인·문제 해결 | [환경변수](docs/environment-variables.md) |
 | 현재 범위에서 제외된 정책·API·스키마 | [후속 확장 참고 설계](docs/future-design.md) |
 | 로그인 구현 커밋·검증 기록 | [로그인 구현 기록](docs/login-implementation.md) |

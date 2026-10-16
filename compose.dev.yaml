@@ -1,0 +1,5 @@
+# For running Spring Boot in an IDE/on the host: start only the postgres service.
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"

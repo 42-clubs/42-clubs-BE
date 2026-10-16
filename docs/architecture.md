@@ -115,7 +115,7 @@ club이 활동 등록 서비스를 다시 호출하는 구조는 피합니다.
 - 마이그레이션 SQL은 `src/main/resources/db/migration`에서 관리합니다.
 - 공유 환경에 적용된 마이그레이션은 수정하지 않고 새 버전 파일을 추가합니다.
 - PostgreSQL 연동 시 Flyway의 `flyway-database-postgresql` 모듈을 함께 사용합니다.
-- 개발 중에는 IDE에서 애플리케이션을 실행하고, Docker Compose로 로컬 PostgreSQL을 실행합니다.
+- 기본 실행은 Nginx·Spring Boot·PostgreSQL 전체 Compose이며 사진·DB를 볼륨에 보존합니다. IDE 개발은 compose.dev.yaml로 DB만 실행합니다. [컴포넌트 구성](docker-compose.md)을 참고합니다.
 - 로컬 DB와 테스트 DB는 PostgreSQL 17.6을 사용합니다. 실행과 환경 변수 설정은 [README](../README.md#개발-환경-및-실행)를 따릅니다.
 
 ### 테스트 및 CI
