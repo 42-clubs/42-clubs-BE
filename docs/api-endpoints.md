@@ -1,9 +1,10 @@
 # API 명세
 
-인증·동아리 조회·사용자 검색·권한 관리와 2~7단계 MVP API를 구현했습니다. 전체 46개 엔드포인트(기존 인증·동아리 조회 7개 + 업무 API 38개 + 로컬 사진 조회 1개)를 아래 표에 정리했습니다. 아래 경로·DTO·상태·오류 계약과 [요청·응답 예시](mvp-api-examples.md)를 기준으로 연동합니다.
-[현재 MVP 정책](domain-model.md#축소-mvp--2026-10-14-확정)과 [후속 API](future-design.md#후속-api-초안)를 구분해 사용합니다.
+인증·동아리 조회·사용자 검색·권한 관리, 공지·활동·소모임 및 마이페이지 API를 구현했습니다. 전체 46개 엔드포인트(기존 인증·동아리 조회 7개 + 업무 API 38개 + 로컬 사진 조회 1개)를 아래 표에 정리했습니다. 아래 경로·DTO·상태·오류 계약과 [요청·응답 예시](mvp-api-examples.md)를 기준으로 연동합니다.
+[현재 MVP 정책](domain-model.md#축소-mvp--2026-10-14-확정)과 [후속 API](future-design.md#후속-api-초안)를 구분해 사용합니다. 46개는 HTTP 메서드·경로 조합의 정의 수이며 OAuth 2개는 AUTH_ENABLED=true, 로컬 사진 조회 1개는 PHOTO_STORAGE_MODE=local일 때만 등록됩니다.
 
 - [마이페이지·내 권한](#마이페이지내-권한--구현-계약)
+- [구현 대조 기준](#구현-대조-기준--2026-10-17)
 - [공통 원칙](#공통-원칙)
 - [먼저 구현할 순서](#먼저-구현할-순서)
 - [인증 — 구현 완료](#인증--구현-계약)
@@ -46,10 +47,12 @@
 ## 공통 원칙
 
 - 업무 API 기본 경로는 `/api/v1`이며 모든 엔드포인트 표에 전체 경로를 표시합니다. OAuth 시작·콜백만 예외입니다.
+- JSON 본문은 `Content-Type: application/json`으로 전송합니다. 활동 생성만 `multipart/form-data`이며 activity 파트는 application/json입니다. GET과 본문 없는 변경 요청에는 JSON 본문을 붙이지 않습니다.
 - 본인 식별자는 인증 정보로 결정합니다. 신청 요청에서 임의 userId를 받아 다른 사람으로 신청할 수 없습니다.
 - 변경 요청은 세션 쿠키와 CSRF 헤더가 필요합니다. CSRF 토큰 누락·불일치는 403입니다.
 - 운영진은 ADMIN·SUPER_ADMIN, 동아리 회장은 해당 ClubManager 관계, 활동·소모임 주최자는 해당 organizer_id로 검사합니다. 동아리 공지 작성·비공개 관리 조회는 운영진 권한으로도 허용합니다.
 - 중첩 경로는 자식의 소속 관계도 검사합니다. 경로의 clubId/gatheringId만 검증하고 다른 부모의 자식을 수정할 수 없습니다.
+- 공개 동아리 공지 조회도 로그인 쿠키를 포함해야 본인의 비공개 열람 권한이 반영됩니다. 익명 요청으로 보내면 PUBLIC만 조회됩니다.
 - 참가자 명단과 출결은 공개 상세 응답에 포함하지 않습니다. 주최자는 관리 명단, 참가자는 본인 상태를 조회합니다.
 - 목록 조회 API는 기본적으로 page=0, size=20(최대 100), `{content, page, size, totalElements, totalPages}` 응답을 사용합니다. 예외로 [사용자 가입 현황](#동아리-부원-관리)의 MembershipResponse는 전체 가입 동아리 배열과 집계를 반환하며 페이지네이션하지 않습니다.
 - 생성은 201, 조회는 200, 부원 등록·참가·취소·출결 기록은 본문 없는 204입니다.
@@ -351,7 +354,7 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 | --- | --- | --- | --- |
 | GET | /api/v1/photos/activities/{filename} | 공개, local 모드만 | 200, JPEG·PNG·WebP 이미지 바이트 |
 
-서버가 생성한 UUID 파일명과 확장자를 사용하며 프론트는 활동 응답 URL을 그대로 사용합니다. DB에 연결되지 않은 파일·삭제된 활동 사진·디스크에 없는 사진은 404입니다. JSON 응답이 아닙니다. 로컬 URL은 만료되지 않으며 S3 모드에는 이 컨트롤러를 등록하지 않습니다. 스키마 변경 없이 기존 storage_key를 사용합니다.
+서버가 생성한 소문자 UUID 파일명과 jpeg·png·webp 확장자를 사용하며 프론트는 활동 응답 URL을 그대로 사용합니다. 컨트롤러의 filename 경로 패턴은 `[0-9a-f-]{36}\.(?:jpeg|png|webp)`이며 jpg 확장자·다른 형식의 경로는 매핑되지 않습니다. 성공 응답은 `Content-Type: image/jpeg|image/png|image/webp`, `Cache-Control: no-store`입니다. DB에 연결되지 않은 파일·삭제된 활동 사진·디스크에 없는 사진은 404입니다. JSON 응답이 아닙니다. 로컬 URL은 만료되지 않으며 S3 모드에는 이 컨트롤러를 등록하지 않습니다. 스키마 변경 없이 기존 storage_key를 사용합니다.
 
 ### 활동 사진 요청·응답 계약
 
@@ -468,7 +471,7 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 
 ## DTO와 프론트 연동 계약
 
-위 표의 `Page<T>`는 실제 JSON에서 아래 구조이며 content 항목이 해당 DTO입니다. 모든 경로 ID는 1 이상의 Java long 범위 정수입니다. 잘못된 숫자·범위·필터·본문은 400입니다.
+위 표의 `Page<T>`는 실제 JSON에서 아래 구조이며 content 항목이 해당 DTO입니다. 숫자 리소스 ID는 1 이상의 Java long 범위 정수입니다. 로컬 사진의 filename은 별도 파일명 규칙을 따릅니다. 잘못된 숫자·범위·필터·본문은 400입니다.
 
 | 공통 필드 | JSON 타입 | 의미 |
 | --- | --- | --- |
@@ -478,7 +481,7 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 | totalElements | integer | 필터 적용 후 전체 항목 수 |
 | totalPages | integer | 전체 페이지 수 |
 
-빈 page·size는 기본값으로 처리하며 페이지를 벗어나도 200·빈 content입니다. 크기 초과를 자동 축소하지 않습니다. 사용자 지정 sort·검색은 새 28개 API에서 지원하지 않습니다. 요청 시각은 `2030-05-02T09:00:00+09:00`처럼 오프셋을 포함하고, 시각 응답은 UTC ISO 8601입니다. dDay는 Asia/Seoul 날짜 차이이며 개최 당일은 D-Day, 개최일이 지난 뒤에는 종료입니다. 당일 개최 시각 경과만으로 종료로 바꾸지 않습니다.
+빈 page·size는 기본값으로 처리하며 페이지를 벗어나도 200·빈 content입니다. 크기 초과를 자동 축소하지 않습니다. 사용자 검색 API의 intraLogin·role 외에 사용자 지정 sort·검색 기능은 제공하지 않습니다. 각 컨트롤러에 선언한 필터만 동작하며 선언하지 않은 쿼리 매개변수로 정렬·검색·본인 ID를 변경할 수 없습니다. 요청 시각은 `2030-05-02T09:00:00+09:00`처럼 오프셋을 포함하고, 시각 응답은 UTC ISO 8601입니다. dDay는 Asia/Seoul 날짜 차이이며 개최 당일은 D-Day, 개최일이 지난 뒤에는 종료입니다. 당일 개최 시각 경과만으로 종료로 바꾸지 않습니다.
 
 - 인증은 서버 세션이며 변경 요청에는 CSRF 토큰을 보냅니다. 204에는 JSON 본문이 없으므로 프론트에서 response.json()을 호출하지 않습니다.
 - ADMIN 운영 기능은 SUPER_ADMIN도 사용합니다. 비공개 공지의 관리 조회에는 운영 권한을 인정하며, 부원 명단·활동 작성·참가 명단·출결의 관계 조건은 유지합니다.
@@ -521,7 +524,7 @@ UNCHECKED로 되돌리면 체크 사용자·시각을 비웁니다. PRESENT 기�
 
 ### 참가·취소 상태 전이
 
-- 참가·재참가·본인 취소는 모두 마감·개최 전만 가능합니다. 회차는 공개 시각 이상·미취소 조건도 검사합니다. 정확히 마감 시각부터 참가·취소 모두 409입니다.
+- 참가·재참가·본인 취소는 모두 마감·개최 전만 가능합니다. 동아리 활동 참가에는 ClubMember 부원 관계를 요구하지 않습니다. 회차는 공개 시각 이상·미취소 조건도 검사합니다. 정확히 마감 시각부터 참가·취소 모두 409입니다.
 - 참가자는 요청 본문이 아닌 세션 사용자입니다. 처음 참가하면 CONFIRMED·UNCHECKED, 취소하면 CANCELLED, 재참가하면 기존 행을 CONFIRMED로 갱신합니다.
 - 이미 CONFIRMED인 중복 참가와 이미 CANCELLED인 취소는 409입니다. 참가하지 않은 사용자의 취소는 404입니다. 주최자는 취소할 수 없습니다.
 - PRESENT 관계의 취소·재참가는 거절하며 출결을 임의로 초기화하지 않습니다. 주최자가 UNCHECKED로 되돌린 뒤 정상 시각·정원 조건에서 처리합니다.
@@ -529,7 +532,9 @@ UNCHECKED로 되돌리면 체크 사용자·시각을 비웁니다. PRESENT 기�
 
 ### 오류 코드
 
-오류 본문은 `{code, message}`입니다. 프론트는 HTTP 상태와 code를 기준으로 처리하며 message는 사용자 안내입니다.
+아래 표의 애플리케이션·보안 처리기가 반환하는 오류 본문은 `{code, message}`입니다. 프론트는 HTTP 상태와 code를 기준으로 처리하며 message는 사용자 안내입니다. 입력 바인딩·형식 오류는 공통 메시지, 업무 검증 오류는 검증 사유를 반환할 수 있으므로 message 문자열을 분기 기준으로 사용하지 않습니다.
+
+지원하지 않는 HTTP 메서드(405)·Content-Type(415)·응답 미디어 타입(406), 미등록 경로 등은 Spring 기본 오류 처리 대상이며 이 공통 JSON 형식을 보장하지 않습니다. 예를 들어 활동 생성에 JSON 본문만 보내거나 activity 파트를 지원하지 않는 Content-Type으로 보내면 400 대신 415가 될 수 있습니다. 프록시에서 차단한 용량 초과 응답도 애플리케이션의 413 본문과 다를 수 있습니다.
 
 | HTTP | code | 조건 |
 | --- | --- | --- |
@@ -546,7 +551,7 @@ UNCHECKED로 되돌리면 체크 사용자·시각을 비웁니다. PRESENT 기�
 | 409 | ATTENDANCE_RECORDED | 출결이 기록된 관계의 취소·재참가 |
 | 409 | PARTICIPANT_NOT_CONFIRMED | CANCELLED 참가자에 대한 출결 기록 |
 | 413 | PAYLOAD_TOO_LARGE | 사진 파일 또는 전체 multipart 요청 용량 초과 |
-| 503 | STORAGE_UNAVAILABLE | 사진 첨부 시 저장소 미설정·업로드 장애·이미지 URL 생성 실패 등 |
+| 503 | STORAGE_UNAVAILABLE | 사진 업로드·로컬 파일 조회 장애·S3 설정 누락·이미지 URL 생성 실패 등; 사진이 있는 활동 목록·상세 조회에서도 발생 가능 |
 
 인증 없이 CSRF도 빠진 변경 요청은 인증보다 CSRF 검사에 의해 403일 수 있습니다. 여러 충돌 조건을 동시에 만족하면 먼저 검사한 조건의 오류가 반환됩니다. 예를 들어 마감 후 중복 참가·취소는 모집 마감 오류가 우선합니다. 기존 권한 관리의 `SUPER_ADMIN_ROLE_PROTECTED`는 해당 권한 관리 계약을 따릅니다.
 
@@ -589,6 +594,8 @@ UNCHECKED로 되돌리면 체크 사용자·시각을 비웁니다. PRESENT 기�
 | canViewMembers | 해당 동아리 ACTIVE 부원 관계 |
 | canReadPrivateNotices | 해당 동아리 ACTIVE 부원·회장 또는 ADMIN·SUPER_ADMIN |
 
+내 동아리 응답의 최상위 isMember·isManager와 permissions 안의 같은 필드는 동일한 값입니다.
+
 단독 권한 조회는 관계가 없는 로그인 사용자도 가능하며 부족한 권한을 false로 반환합니다. 없는 동아리는 404입니다. 권한은 조회 시점의 값이므로 실제 변경 요청에서도 재검사하며, 주최자별 명단·출결 권한을 부여하는 필드는 아닙니다.
 
 ### 참가 그룹 필터와 정렬
@@ -616,6 +623,13 @@ UNCHECKED로 되돌리면 체크 사용자·시각을 비웁니다. PRESENT 기�
 | items[].attendanceStatus | UNCHECKED / PRESENT |
 | items[].isOrganizer | 본인이 해당 활동·소모임 주최자인지 |
 
-상세 이동은 CLUB이면 `/clubs/{groupId}/activities/{activityId}`, GATHERING이면 `/gatherings/{groupId}/sessions/{sessionId}`를 사용하며 API 호출에는 `/api/v1`을 붙입니다. 일회성과 정기모임은 같은 그룹 구조입니다.
+상세 이동은 CLUB이면 `/clubs/{groupId}/activities/{activityId}`, GATHERING이면 `/gatherings/{groupId}/sessions/{sessionId}`를 사용하며 API 호출에는 `/api/v1`을 붙입니다. 일회성과 정기모임은 같은 그룹 구조입니다. 소모임 자체의 가입 상태는 없으며 items의 status는 회차 참가 상태입니다. 두 그룹 API 모두 응답 필드명은 items이며 sessions가 아닙니다.
 
 잘못된 ID·필터·page·size는 400 INVALID_REQUEST, 미인증은 401 UNAUTHENTICATED입니다. 빈 목록이나 범위 밖 페이지는 200·빈 content입니다. 캘린더 전용 엔드포인트·월별 필터는 이번 범위에 포함하지 않습니다.
+
+## 구현 대조 기준 — 2026-10-17
+
+- 전체 Controller의 클래스·메서드 매핑과 [SecurityConfig](../src/main/java/com/clubplatform/auth/config/SecurityConfig.java)의 OAuth·로그아웃 경로를 합쳐 46개 HTTP 메서드·경로 조합을 대조했습니다. 명세 표의 누락·미구현 경로는 없습니다. 조건부 등록은 문서 상단의 환경 조건을 따릅니다.
+- 요청·응답 record의 외부 필드, Bean Validation, 생성 Location·201·204 응답, 서비스 권한·참가 상태 전이, Repository의 공개 범위·정렬, 마이페이지 그룹 필터를 대조했습니다. 내부 협력 DTO인 UserIdentity·MyActivity·MySession은 독립된 외부 API 응답이 아닙니다.
+- 업무·입력 오류는 [GlobalExceptionHandler](../src/main/java/com/clubplatform/global/exception/GlobalExceptionHandler.java), 사진 저장소 오류는 [PhotoExceptionHandler](../src/main/java/com/clubplatform/activity/controller/PhotoExceptionHandler.java), 미인증·CSRF 오류는 SecurityConfig를 기준으로 합니다. 405·415 등 기본 프레임워크 오류는 위 공통 오류 본문의 보장 범위에서 제외합니다.
+- 이번 대조는 저장소 코드 기준입니다. 실제 42 제공자·프론트엔드·배포 프록시의 통합 동작은 별도 연동 확인 대상입니다. 캘린더 API는 구현·명세 범위에 포함하지 않습니다.

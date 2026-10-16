@@ -137,7 +137,7 @@ X-CSRF-TOKEN: ...
 
 ## 프론트 호출 시 공통 처리
 
-- fetch는 인증이 필요한 요청에 `credentials: 'include'`를 지정하고 변경 요청에 현재 CSRF 헤더를 보냅니다. 인증·CSRF 흐름은 [인증 계약](api-endpoints.md#인증--구현-계약)을 따릅니다.
+- fetch는 인증이 필요한 요청뿐 아니라 로그인 상태로 동아리 공지를 조회할 때도 `credentials: 'include'`를 지정합니다. 쿠키가 없으면 비공개 공지가 목록에서 빠지고 상세는 404입니다. 변경 요청에는 현재 CSRF 헤더를 보냅니다. 인증·CSRF 흐름은 [인증 계약](api-endpoints.md#인증--구현-계약)을 따릅니다.
 - JSON 본문이 있는 요청만 `Content-Type: application/json`으로 전송합니다. 참가·취소·부원 등록에는 본문을 보내지 않습니다.
 - 204 응답에는 JSON 본문이 없습니다. 성공 후 상태·인원 표시가 필요하면 본인 상태와 활동/회차 상세를 다시 조회합니다.
 - 회차 목록 filter는 ALL(기본) / UPCOMING / ONGOING / PAST입니다. 전체 목록과 필터 모두 page·size를 사용합니다. 예: `GET /api/v1/gatherings/30/sessions?filter=PAST&page=0&size=20`.
@@ -148,7 +148,7 @@ X-CSRF-TOKEN: ...
 {"code":"CAPACITY_FULL","message":"정원이 찼습니다."}
 ```
 
-HTTP 409 상태에서 code로 정원·마감·중복 참가 등을 구분합니다. 로그인 없이 조회하는 공개 API와 인증이 필요한 본인 상태·명단 API를 구분합니다. 로컬 사진 URL은 만료되지 않습니다. S3 모드의 서명 이미지 URL은 만료되면 활동을 다시 조회해 갱신합니다.
+HTTP 409 상태에서 code로 정원·마감·중복 참가 등을 구분합니다. 405·415 등 프레임워크 오류나 프록시 응답은 `{code,message}` 형식이 아닐 수 있으므로 HTTP 상태를 먼저 확인하고 JSON 여부에 맞게 처리합니다. 로그인 없이 조회하는 공개 API와 인증이 필요한 본인 상태·명단 API를 구분합니다. 로컬 사진 URL은 만료되지 않습니다. S3 모드의 서명 이미지 URL은 만료되면 활동을 다시 조회해 갱신합니다.
 
 ## 내 동아리·권한·참가 내역
 
