@@ -29,7 +29,7 @@ public class ActivityController {
             @RequestPart("activity") @Valid ActivityRequest request,
             @RequestPart(value = "images", required = false) List<MultipartFile> images) {
         long id = creation.create(actor.userId(), clubId, request, images);
-        return ResponseEntity.created(URI.create("/api/v1/activities/" + id))
+        return ResponseEntity.created(URI.create("/api/v1/clubs/" + clubId + "/activities/" + id))
                 .body(new CreatedResponse(id));
     }
 
@@ -41,8 +41,10 @@ public class ActivityController {
         return query.list(clubId, page, size);
     }
 
-    @GetMapping("/api/v1/activities/{activityId}")
-    public ActivityResponse detail(@PathVariable("activityId") @Min(1) long id) {
-        return query.detail(id);
+    @GetMapping("/api/v1/clubs/{clubId}/activities/{activityId}")
+    public ActivityResponse detail(
+            @PathVariable("clubId") @Min(1) long clubId,
+            @PathVariable("activityId") @Min(1) long id) {
+        return query.detail(clubId, id);
     }
 }

@@ -58,7 +58,7 @@ public class SecurityConfig {
                                                 "/api/v1/clubs/{clubId}/notices",
                                                 "/api/v1/clubs/{clubId}/notices/{noticeId}",
                                                 "/api/v1/clubs/{clubId}/activities",
-                                                "/api/v1/activities/{activityId}",
+                                                "/api/v1/clubs/{clubId}/activities/{activityId}",
                                                 "/api/v1/announcements",
                                                 "/api/v1/announcements/{announcementId}",
                                                 "/api/v1/gatherings",

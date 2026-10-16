@@ -198,7 +198,7 @@ MVP는 CONFIRMED/CANCELLED와 선착순 참가·취소·재참가만 구현합�
 | GET | /me/gathering-sessions | 회차별 참여 내역·본인 출결 | 로그인 |
 | GET | /me/activities | 주최·참여 활동 및 본인 출결 | 로그인 |
 | GET | /clubs/{clubId}/organizer-candidates?intraLogin=... | 활동 주최자 지정 대상 검색 | 해당 동아리 관리자 |
-| GET | /activities/{activityId}/participant-candidates?intraLogin=... | 활동 참가자 등록 대상 검색 | 해당 활동 주최자 |
+| GET | /clubs/{clubId}/activities/{activityId}/participant-candidates?intraLogin=... | 활동 참가자 등록 대상 검색 | 해당 활동 주최자 |
 
 검색 결과는 내부 ID·Intra 로그인명·표시 이름으로 제한하는 초안입니다.
 부원 등록·가입 현황 조회 API는 [현재 API 명세](api-endpoints.md#동아리-부원-관리)를 따릅니다.
@@ -216,13 +216,13 @@ MVP는 CONFIRMED/CANCELLED와 선착순 참가·취소·재참가만 구현합�
 
 | 메서드 | 경로 | 기능 | 권한 |
 | --- | --- | --- | --- |
-| PATCH | /activities/{activityId} | 활동 내용·주최자 변경 | ACTIVE인 소속 동아리 관리자 |
-| DELETE | /activities/{activityId} | 활동 논리 삭제 — 여유 시 후속, MVP 제외 | ACTIVE인 소속 동아리 관리자 |
-| PUT | /activities/{activityId}/participants/{userId} | 주최자 수동 참가자 등록 — 핵심 MVP 제외 | 해당 활동 주최자 |
+| PATCH | /clubs/{clubId}/activities/{activityId} | 활동 내용·주최자 변경 | ACTIVE인 소속 동아리 관리자 |
+| DELETE | /clubs/{clubId}/activities/{activityId} | 활동 논리 삭제 — 여유 시 후속, MVP 제외 | ACTIVE인 소속 동아리 관리자 |
+| PUT | /clubs/{clubId}/activities/{activityId}/participants/{userId} | 주최자 수동 참가자 등록 — 핵심 MVP 제외 | 해당 활동 주최자 |
 | PATCH | /clubs/{clubId}/notices/{noticeId} | 공지 수정 | ACTIVE인 소속 동아리 관리자 |
 | DELETE | /clubs/{clubId}/notices/{noticeId} | 공지 논리 삭제 — 여유 시 후속, MVP 제외 | ACTIVE인 소속 동아리 관리자 |
 
-삭제 후 본인 기록은 `/me/activities`, 주최자 관리 명단은 `/activities/{activityId}/participants`로 조회하는 초안입니다. 삭제된 활동의 변경은 409로 처리합니다.
+삭제 후 본인 기록은 `/me/activities`, 주최자 관리 명단은 `/clubs/{clubId}/activities/{activityId}/participants`로 조회하는 초안입니다. 삭제된 활동의 변경은 409로 처리합니다.
 
 ### 소모임 운영 API
 

@@ -306,9 +306,9 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 | --- | --- | --- | --- | --- | --- |
 | POST | /api/v1/clubs/{clubId}/activities | 활동·사진·주최자 참가 생성 | ACTIVE인 해당 동아리 회장 | multipart: activity + 선택 images | 201, CreatedResponse |
 | GET | /api/v1/clubs/{clubId}/activities | 활동 목록 | 공개 | 없음 | 200, Page&lt;ActivityResponse&gt; |
-| GET | /api/v1/activities/{activityId} | 활동 상세 | 공개 | 없음 | 200, ActivityResponse |
+| GET | /api/v1/clubs/{clubId}/activities/{activityId} | 활동 상세 | 공개 | 없음 | 200, ActivityResponse |
 
-생성 응답은 `{"id":20}`이며 `Location: /api/v1/activities/20`을 제공합니다. authorId·organizerId를 요청받지 않고 작성한 회장을 작성자·주최자로 지정합니다. 활동·주최자의 CONFIRMED 참가·사진 연결은 함께 저장하며 주최자도 정원에 포함됩니다.
+생성 응답은 `{"id":20}`이며 `Location: /api/v1/clubs/1/activities/20`을 제공합니다. authorId·organizerId를 요청받지 않고 작성한 회장을 작성자·주최자로 지정합니다. 활동·주최자의 CONFIRMED 참가·사진 연결은 함께 저장하며 주최자도 정원에 포함됩니다.
 
 **ActivityRequest — activity JSON 파트**
 
@@ -357,11 +357,11 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 
 | 메서드 | 전체 경로 | 기능 | 권한 | 요청 본문 | 성공·응답 |
 | --- | --- | --- | --- | --- | --- |
-| POST | /api/v1/activities/{activityId}/participants | 본인 참가·재참가 | 로그인 본인 | 없음 | 204, 본문 없음 |
-| DELETE | /api/v1/activities/{activityId}/participants/me | 본인 참가 취소 | 로그인 본인, 주최자 제외 | 없음 | 204, 본문 없음 |
-| GET | /api/v1/activities/{activityId}/participants/me | 본인 참가·출결 상태 | 로그인 본인 | 없음 | 200, ParticipationResponse |
-| GET | /api/v1/activities/{activityId}/participants | 참가자·출결 명단 | 해당 활동 주최자 | 없음 | 200, Page&lt;ParticipantResponse&gt; |
-| PATCH | /api/v1/activities/{activityId}/participants/{userId}/attendance | 참가자 출결 기록 | 해당 활동 주최자 | AttendanceRequest JSON | 204, 본문 없음 |
+| POST | /api/v1/clubs/{clubId}/activities/{activityId}/participants | 본인 참가·재참가 | 로그인 본인 | 없음 | 204, 본문 없음 |
+| DELETE | /api/v1/clubs/{clubId}/activities/{activityId}/participants/me | 본인 참가 취소 | 로그인 본인, 주최자 제외 | 없음 | 204, 본문 없음 |
+| GET | /api/v1/clubs/{clubId}/activities/{activityId}/participants/me | 본인 참가·출결 상태 | 로그인 본인 | 없음 | 200, ParticipationResponse |
+| GET | /api/v1/clubs/{clubId}/activities/{activityId}/participants | 참가자·출결 명단 | 해당 활동 주최자 | 없음 | 200, Page&lt;ParticipantResponse&gt; |
+| PATCH | /api/v1/clubs/{clubId}/activities/{activityId}/participants/{userId}/attendance | 참가자 출결 기록 | 해당 활동 주최자 | AttendanceRequest JSON | 204, 본문 없음 |
 
 명단만 page·size를 받습니다. 요청·상태 전이·응답 필드·오류는 아래 [참가·출결 공통 계약](#활동소모임-구현-계약)을 따릅니다. 활동의 다른 회장·ADMIN·SUPER_ADMIN도 주최자가 아니면 명단·출결에 접근할 수 없습니다.
 
@@ -538,4 +538,7 @@ UNCHECKED로 되돌리면 체크 사용자·시각을 비웁니다. PRESENT 기�
 
 ## 공지·활동 경로 전환
 
-동아리 공지 상세는 `/api/v1/clubs/{clubId}/notices/{noticeId}`로 변경했습니다. 기존 `/api/v1/notices/{noticeId}`는 제거하고 호환 별칭·리다이렉트를 제공하지 않습니다. 활동 경로 통일은 다음 변경에서 적용합니다.
+- 동아리 공지 상세는 `/api/v1/clubs/{clubId}/notices/{noticeId}`, 활동 상세와 참가·취소·명단·출결은 `/api/v1/clubs/{clubId}/activities/{activityId}` 아래로 통일했습니다.
+- 기존 `/api/v1/notices/{noticeId}`, `/api/v1/activities/{activityId}`와 기존 활동 참가 하위 경로는 제거했습니다. 리다이렉트·호환 별칭이 없으므로 프론트 링크·API 호출을 함께 변경해야 합니다. 미인증 요청은 공통 보안 규칙에 따라 401/403이 먼저 반환될 수 있습니다.
+- 모든 중첩 활동 요청은 조회 쿼리에서 clubId·activityId·미삭제 조건을 함께 검사합니다. 잘못된 동아리 조합은 404이며 다른 활동의 참가·출결을 변경하지 않습니다. 활동 생성 Location도 중첩 경로입니다.
+- 공지의 기본 비공개 정책은 활동에 적용하지 않습니다. 활동의 공개 조회·본인 참가·주최자 출결 정책은 유지합니다.

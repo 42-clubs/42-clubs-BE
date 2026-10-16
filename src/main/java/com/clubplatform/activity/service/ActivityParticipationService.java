@@ -23,8 +23,8 @@ public class ActivityParticipationService {
     private final Clock clock;
 
     @Transactional
-    public void join(long actorId, long id) {
-        var resource = activities.findForUpdate(id).orElseThrow(() -> missing());
+    public void join(long actorId, long clubId, long id) {
+        var resource = activities.findForUpdate(clubId, id).orElseThrow(() -> missing());
         long organizerId = resource.getOrganizerId();
         var now = clock.instant();
         resource.requireRecruiting(now);
@@ -38,8 +38,8 @@ public class ActivityParticipationService {
     }
 
     @Transactional
-    public void cancel(long actorId, long id) {
-        var resource = activities.findForUpdate(id).orElseThrow(() -> missing());
+    public void cancel(long actorId, long clubId, long id) {
+        var resource = activities.findForUpdate(clubId, id).orElseThrow(() -> missing());
         long organizerId = resource.getOrganizerId();
         var now = clock.instant();
         resource.requireRecruiting(now);
@@ -51,8 +51,11 @@ public class ActivityParticipationService {
                 .cancel(now);
     }
 
-    public ParticipationResponse mine(long actorId, long id) {
-        var resource = activities.findByIdAndDeletedAtIsNull(id).orElseThrow(() -> missing());
+    public ParticipationResponse mine(long actorId, long clubId, long id) {
+        var resource =
+                activities
+                        .findByIdAndClubIdAndDeletedAtIsNull(id, clubId)
+                        .orElseThrow(() -> missing());
         long organizerId = resource.getOrganizerId();
         return participants
                 .findByActivityIdAndUserId(id, actorId)
@@ -60,8 +63,12 @@ public class ActivityParticipationService {
                 .orElse(new ParticipationResponse(null, null));
     }
 
-    public PageResponse<ParticipantResponse> roster(long actorId, long id, int page, int size) {
-        var resource = activities.findByIdAndDeletedAtIsNull(id).orElseThrow(() -> missing());
+    public PageResponse<ParticipantResponse> roster(
+            long actorId, long clubId, long id, int page, int size) {
+        var resource =
+                activities
+                        .findByIdAndClubIdAndDeletedAtIsNull(id, clubId)
+                        .orElseThrow(() -> missing());
         long organizerId = resource.getOrganizerId();
         requireOrganizer(actorId, organizerId);
         var rows = participants.findByActivityId(id, PageRequest.of(page, size, Sort.by("userId")));
@@ -83,8 +90,8 @@ public class ActivityParticipationService {
     }
 
     @Transactional
-    public void attendance(long actorId, long id, long userId, String value) {
-        var resource = activities.findForUpdate(id).orElseThrow(() -> missing());
+    public void attendance(long actorId, long clubId, long id, long userId, String value) {
+        var resource = activities.findForUpdate(clubId, id).orElseThrow(() -> missing());
         long organizerId = resource.getOrganizerId();
         requireOrganizer(actorId, organizerId);
         participants

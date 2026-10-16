@@ -198,11 +198,16 @@ class EventIntegrationTests {
                                         .with(csrf()))
                         .andExpect(status().isCreated())
                         .andReturn();
-        return mapper.readTree(response.getResponse().getContentAsString()).get("id").asLong();
+        long id = mapper.readTree(response.getResponse().getContentAsString()).get("id").asLong();
+        assertThat(response.getResponse().getHeader("Location"))
+                .isEqualTo("/api/v1/clubs/" + club + "/activities/" + id);
+        return id;
     }
 
     String base(boolean gathering, long id) {
-        return "/api/v1/" + (gathering ? "gathering-sessions/" : "activities/") + id;
+        return "/api/v1/"
+                + (gathering ? "gathering-sessions/" : "clubs/" + club + "/activities/")
+                + id;
     }
 
     String table(boolean gathering) {
@@ -361,7 +366,7 @@ class EventIntegrationTests {
                                 try {
                                     gate.await(10, TimeUnit.SECONDS);
                                     if (gathering) sessionParticipation.join(actor, id);
-                                    else activityParticipation.join(actor, id);
+                                    else activityParticipation.join(actor, club, id);
                                     success.incrementAndGet();
                                 } catch (ConflictException e) {
                                     assertThat(e.getCode()).isEqualTo("CAPACITY_FULL");
@@ -675,7 +680,7 @@ class EventIntegrationTests {
                                 try {
                                     gate.await(10, TimeUnit.SECONDS);
                                     if (gathering) sessionParticipation.join(user, id);
-                                    else activityParticipation.join(user, id);
+                                    else activityParticipation.join(user, club, id);
                                     success.incrementAndGet();
                                 } catch (ConflictException e) {
                                     assertThat(e.getCode()).isEqualTo("ALREADY_JOINED");
@@ -735,5 +740,49 @@ class EventIntegrationTests {
             jdbc.execute("DROP TRIGGER test_session_failure ON gathering_session_participants");
             jdbc.execute("DROP FUNCTION test_session_failure()");
         }
+    }
+
+    @Test
+    void activityRoutesRequireMatchingClubBeforeAnyParticipantReadOrMutation() throws Exception {
+        long id = create(false, 3);
+        long wrongClub = clubs.saveAndFlush(new Club("Wrong", "Summary", "Description")).getId();
+        String correct = base(false, id),
+                wrong = "/api/v1/clubs/" + wrongClub + "/activities/" + id;
+        mvc.perform(post(correct + "/participants").session(session(user)).with(csrf()))
+                .andExpect(status().isNoContent());
+        mvc.perform(get(wrong)).andExpect(status().isNotFound());
+        mvc.perform(get(wrong + "/participants/me").session(session(user)))
+                .andExpect(status().isNotFound());
+        mvc.perform(get(wrong + "/participants").session(session(owner)))
+                .andExpect(status().isNotFound());
+        mvc.perform(post(wrong + "/participants").session(session(other)).with(csrf()))
+                .andExpect(status().isNotFound());
+        mvc.perform(delete(wrong + "/participants/me").session(session(user)).with(csrf()))
+                .andExpect(status().isNotFound());
+        mvc.perform(
+                        patch(wrong + "/participants/" + user + "/attendance")
+                                .session(session(owner))
+                                .with(csrf())
+                                .contentType("application/json")
+                                .content("{\"attendanceStatus\":\"PRESENT\"}"))
+                .andExpect(status().isNotFound());
+        mvc.perform(get(correct + "/participants/me").session(session(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.attendanceStatus").value("UNCHECKED"));
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM activity_participants WHERE activity_id=?",
+                                Integer.class,
+                                id))
+                .isEqualTo(2);
+        for (String suffix : List.of("", "/participants", "/participants/me"))
+            mvc.perform(get("/api/v1/activities/" + id + suffix).session(session(owner)))
+                    .andExpect(status().isNotFound());
+        mvc.perform(
+                        post("/api/v1/activities/" + id + "/participants")
+                                .session(session(other))
+                                .with(csrf()))
+                .andExpect(status().isNotFound());
     }
 }

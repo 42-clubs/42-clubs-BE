@@ -80,7 +80,7 @@ images (image/png): 첫 사진 파일
 images (image/jpeg): 두 번째 사진 파일
 ```
 
-사진 없이 생성할 때는 images 파트를 생략합니다. 201, `Location: /api/v1/activities/20`, `{"id":20}`을 받습니다. `GET /api/v1/activities/20`의 사진 없는 상세 예시는 다음과 같습니다.
+사진 없이 생성할 때는 images 파트를 생략합니다. 201, `Location: /api/v1/clubs/1/activities/20`, `{"id":20}`을 받습니다. `GET /api/v1/clubs/1/activities/20`의 사진 없는 상세 예시는 다음과 같습니다.
 
 ```json
 {"id":20,"clubId":1,"organizerId":2,"title":"동아리 활동","content":"활동 소개","startsAt":"2030-05-02T00:00:00Z","recruitmentClosesAt":"2030-05-01T23:00:00Z","capacity":10,"currentParticipantCount":1,"remainingCapacity":9,"recruiting":true,"dDay":"D-1","representativeImageUrl":null,"images":[]}
@@ -88,11 +88,11 @@ images (image/jpeg): 두 번째 사진 파일
 
 사진이 있으면 representativeImageUrl과 images의 url을 img src에 사용합니다. images는 `[{"url":"https://...","sortOrder":0}]` 형태입니다. 목록은 같은 활동 DTO에서 content=null, images=[]이며 대표 이미지 URL을 제공합니다. 공개 응답에는 참가자 명단이 없습니다.
 
-- 참가: `POST /api/v1/activities/20/participants` → 204. 본문·사용자 ID를 보내지 않습니다.
-- 본인 상태: `GET /api/v1/activities/20/participants/me` → `{"status":"CONFIRMED","attendanceStatus":"UNCHECKED"}`. 미참가는 두 필드가 null입니다.
-- 취소: `DELETE /api/v1/activities/20/participants/me` → 204. 주최자와 출결이 기록된 참가자는 취소할 수 없습니다.
-- 주최자 명단: `GET /api/v1/activities/20/participants?page=0&size=20`.
-- 주최자 출결: `PATCH /api/v1/activities/20/participants/3/attendance`, `{"attendanceStatus":"PRESENT"}` → 204. UNCHECKED로 되돌릴 수 있습니다.
+- 참가: `POST /api/v1/clubs/1/activities/20/participants` → 204. 본문·사용자 ID를 보내지 않습니다.
+- 본인 상태: `GET /api/v1/clubs/1/activities/20/participants/me` → `{"status":"CONFIRMED","attendanceStatus":"UNCHECKED"}`. 미참가는 두 필드가 null입니다.
+- 취소: `DELETE /api/v1/clubs/1/activities/20/participants/me` → 204. 주최자와 출결이 기록된 참가자는 취소할 수 없습니다.
+- 주최자 명단: `GET /api/v1/clubs/1/activities/20/participants?page=0&size=20`.
+- 주최자 출결: `PATCH /api/v1/clubs/1/activities/20/participants/3/attendance`, `{"attendanceStatus":"PRESENT"}` → 204. UNCHECKED로 되돌릴 수 있습니다.
 
 명단의 content 항목은 다음과 같습니다.
 
@@ -131,7 +131,9 @@ X-CSRF-TOKEN: ...
 
 ## 경로 전환 확인
 
-공지 상세에 clubId를 포함합니다. 예를 들어 동아리 1의 공지를 `/api/v1/clubs/2/notices/10`으로 조회하면 404입니다. 기존 `/api/v1/notices/10` 경로는 제거되었습니다. 활동 경로 통일은 다음 변경에서 적용합니다.
+- 공지 상세와 활동 상세·참가·출결 호출에 clubId를 포함합니다. 본문의 clubId를 바꾸는 것으로 경로의 소속 검사를 우회할 수 없습니다.
+- 예를 들어 실제 동아리 1의 활동 20에 `/api/v1/clubs/2/activities/20`으로 접근하면 404입니다. 공지도 같은 소속 규칙을 적용합니다.
+- 기존 `/api/v1/notices/10`, `/api/v1/activities/20` 및 그 참가 하위 경로는 제거되었습니다. 기존 링크를 새 중첩 경로로 변경합니다.
 
 ## 프론트 호출 시 공통 처리
 

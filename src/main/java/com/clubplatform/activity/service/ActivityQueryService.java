@@ -54,10 +54,10 @@ public class ActivityQueryService {
                                         now)));
     }
 
-    public ActivityResponse detail(long id) {
+    public ActivityResponse detail(long clubId, long id) {
         var a =
                 activities
-                        .findByIdAndDeletedAtIsNull(id)
+                        .findByIdAndClubIdAndDeletedAtIsNull(id, clubId)
                         .orElseThrow(() -> new ResourceNotFoundException("활동을 찾을 수 없습니다."));
         return response(
                 a,

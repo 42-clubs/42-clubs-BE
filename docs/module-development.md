@@ -70,6 +70,7 @@ OAuth 인가 요청은 Spring Security의 기본 서버 세션 저장소를 사�
 - NoticeService는 ClubPermissionService.requireNoticeWriter로 ACTIVE 동아리 회장 또는 운영진의 작성을 허용합니다. 활동 작성의 requireManager는 기존 회장 조건을 유지합니다.
 - 공지 조회는 canReadPrivateNotices로 현재 부원·회장·운영 권한을 확인하고, NoticeRepository가 소속·삭제·공개 범위를 WHERE 조건으로 필터링한 뒤 페이지·전체 개수를 계산합니다. 접근 불가 상세는 404입니다.
 - AnnouncementService는 user의 requireAdmin으로 작성 권한을 검사하며 공개 조회에 동아리 조건을 두지 않습니다.
+- 활동 상세·참가·취소·출결은 ActivityRepository에서 clubId·activityId·미삭제 조건을 함께 조회합니다. 다른 동아리 ID 조합은 실제 데이터 조회·변경 전에 404입니다.
 
 ## 실제 구현: 동아리 활동 등록
 

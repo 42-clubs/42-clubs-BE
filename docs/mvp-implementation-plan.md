@@ -117,7 +117,7 @@ V8에서 동아리 공지에 visibility를 추가하고 기존 글을 MEMBERS_ON
 | --- | --- | --- |
 | POST | /clubs/{clubId}/activities | 회장의 활동 작성 |
 | GET | /clubs/{clubId}/activities | 활동 목록 |
-| GET | /activities/{activityId} | 활동 상세 |
+| GET | /clubs/{clubId}/activities/{activityId} | 활동 상세 |
 
 **확정한 구현**
 
@@ -137,11 +137,11 @@ V8에서 동아리 공지에 visibility를 추가하고 기존 글을 MEMBERS_ON
 
 | 메서드 | 경로 | 목적 |
 | --- | --- | --- |
-| POST | /activities/{activityId}/participants | 본인 참가·재참가 |
-| DELETE | /activities/{activityId}/participants/me | 본인 참가 취소 |
-| GET | /activities/{activityId}/participants/me | 본인 참가·출결 상태 |
-| GET | /activities/{activityId}/participants | 주최자의 참가자·출결 명단 |
-| PATCH | /activities/{activityId}/participants/{userId}/attendance | 주최자의 출결 기록 |
+| POST | /clubs/{clubId}/activities/{activityId}/participants | 본인 참가·재참가 |
+| DELETE | /clubs/{clubId}/activities/{activityId}/participants/me | 본인 참가 취소 |
+| GET | /clubs/{clubId}/activities/{activityId}/participants/me | 본인 참가·출결 상태 |
+| GET | /clubs/{clubId}/activities/{activityId}/participants | 주최자의 참가자·출결 명단 |
+| PATCH | /clubs/{clubId}/activities/{activityId}/participants/{userId}/attendance | 주최자의 출결 기록 |
 
 **작업**
 
@@ -198,8 +198,8 @@ V8에서 동아리 공지에 visibility를 추가하고 기존 글을 MEMBERS_ON
 
 ## 공지·활동 정책 확장
 
-- 동아리 공지 상세 경로를 clubId 아래로 통일하고 소속 불일치는 404로 처리합니다. 기존 경로는 제거하고 생성 Location·보안 공개 조회 경로·프론트 예시를 갱신했습니다. 활동 경로 통일은 다음 변경에서 적용합니다.
-- 기존 미커밋 변경을 제외한 체크아웃에서 `./gradlew build --offline` 성공, 147개 테스트 통과(실패·오류·생략 없음). V8 공개 범위 전환, V9 운영 공지 추가와 정책별 권한·노출 검증을 포함합니다. 부원 명단·활동 작성·출결 권한은 기존 정책을 유지합니다.
+- 동아리 공지·활동 상세 및 활동 참가·취소·출결 경로를 clubId 아래로 통일하고 소속 불일치는 404로 처리합니다. 기존 경로는 제거하고 생성 Location·보안 공개 조회 경로·프론트 예시를 함께 갱신했습니다.
+- `./gradlew spotlessApply build --offline` 성공, 전체 149개 테스트 통과(실패·오류·생략 없음; 기존 로컬 디버깅 테스트 1개 포함). 기존 미커밋 변경을 제외한 최종 체크아웃에서도 `./gradlew build --offline` 성공, 148개 테스트 통과(실패·오류·생략 없음). V8 공개 범위 전환, V9 운영 공지 추가와 정책별 권한·노출 검증을 포함합니다. 부원 명단·활동 작성·출결 권한은 기존 정책을 유지합니다.
 
 ## 구현·검증 기록
 
