@@ -1,27 +1,31 @@
 # API 명세
 
-인증과 동아리 공개 조회는 구현 계약입니다. 나머지는 확정된 최소 MVP를 구현하기 위한 엔드포인트 계획이며 아직 구현되지 않았습니다. 요청·응답의 최소 구성은 아래에 정리하고 세부 DTO는 구현 시 확정합니다.
+인증·동아리 공개 조회·사용자 검색·권한 관리는 구현 계약입니다. 나머지는 확정된 최소 MVP를 구현하기 위한 엔드포인트 계획이며 아직 구현되지 않았습니다. 요청·응답의 최소 구성은 아래에 정리하고 세부 DTO는 구현 시 확정합니다.
 [현재 MVP 정책](domain-model.md#축소-mvp--2026-10-14-확정)과 [후속 API](future-design.md#후속-api-초안)를 구분해 사용합니다.
 
 - [공통 원칙](#공통-원칙)
 - [먼저 구현할 순서](#먼저-구현할-순서)
 - [인증 — 구현 완료](#인증--구현-계약)
 - [동아리 조회 — 구현 완료](#동아리-공개-조회--구현-계약)
+- [사용자 검색·권한 관리 — 구현 완료](#사용자-검색권한-관리--구현-계약)
 - [최소 MVP 엔드포인트](#mvp-api--미구현)
 
 ## 먼저 구현할 순서
 
 기능별 DB 작업·의존성·검증 조건은 [MVP 구현 계획](mvp-implementation-plan.md)에서 관리합니다. 계획에서는 권한 관리 화면의 선행 의존성인 사용자 검색을 부원 관리보다 먼저 구현합니다.
 
-현재 구현된 인증 5개(OAuth 시작·콜백 포함)와 동아리 조회 2개를 활용합니다. 새로 구현할 업무 엔드포인트는 **31개**이며 활동 사진은 작성 요청에 포함하므로 별도 업로드 API를 추가하지 않습니다. 아래 순서는 개발 권장 순서이며 각 단계의 경로·권한은 뒤의 표가 기준입니다.
+현재 구현된 인증 5개(OAuth 시작·콜백 포함)와 동아리 조회 2개를 활용합니다. 업무 엔드포인트는 총 **31개**로 사용자 검색·권한 관리 6개를 구현했고 나머지 **25개**는 미구현입니다. 활동 사진은 작성 요청에 포함하므로 별도 업로드 API를 추가하지 않습니다. 아래 순서는 개발 권장 순서이며 각 단계의 경로·권한은 뒤의 표가 기준입니다.
 
-| 순서 | 구현 묶음 | 신규 API 수 | 프론트에서 사용할 흐름 |
+| 순서 | 구현 묶음 | API 수 | 상태 |
 | --- | --- | --- | --- |
-| 0 | 최고 관리자 권한 관리 | 5 | 사용자 검색 → ADMIN 부여·회수, 회장 목록·부여·회수 |
-| 1 | 부원 관리 | 4 | ADMIN 사용자 검색 → 가입 현황 확인 → 직접 등록, 부원의 명단 조회 |
-| 2 | 공지 | 3 | 동아리 공지 목록 → 상세, ClubManager 공지 작성 |
-| 3 | 동아리 활동 + 기본 출결 | 8 | 활동 작성·목록·상세 → 본인 참가·취소·상태 조회 → 주최자 명단·출결 처리 |
-| 4 | 소모임 + 회차 + 기본 출결 | 11 | 글과 첫 회차 생성 → 상세와 회차 목록 → 회차별 참가·출결 → 같은 모임에 다음 회차 생성 |
+| 0 | 역할·권한 기반·초기 DB 입력 절차 | 0 | 완료 |
+| 1 | 사용자 검색·최고 관리자 권한 관리 | 6 | 완료 |
+| 2 | 부원 등록·현황·명단 | 3 | 미구현 |
+| 3 | 공지 작성·조회 | 3 | 미구현 |
+| 4 | 동아리 활동 작성·조회 | 3 | 미구현 |
+| 5 | 활동 참가·취소·기본 출결 | 5 | 미구현 |
+| 6 | 소모임·회차 작성·조회 | 6 | 미구현 |
+| 7 | 회차 참가·취소·기본 출결 | 5 | 미구현 |
 
 초기 동아리·회장·최고 관리자는 전달받은 정보로 [초기 DB 입력 절차](initial-data-setup.md)에 따라 입력합니다. 이후 권한 관리는 아래 최고 관리자 API를 사용합니다. 동아리 생성 API는 MVP에 추가하지 않습니다. 0단계에서 SUPER_ADMIN 역할과 ClubManager 관계·작성 권한 검사를 구현했습니다. ClubMember는 2단계에서 구현합니다.
 
@@ -58,7 +62,7 @@
 - 세션 쿠키는 HttpOnly이며 로컬은 SameSite=Lax, Secure=false입니다. 배포 설정은 환경 변수로 변경합니다. 로그인 상태는 서버 재시작 시 사라집니다.
 - 인증 없는 보호 API는 401 `UNAUTHENTICATED`, ADMIN 권한 부족과 CSRF 오류는 403 `ACCESS_DENIED`입니다. OAuth state·코드·42 프로필 오류 및 경산 도메인 불일치는 401 `OAUTH_LOGIN_FAILED`이며 외부 오류 세부 내용은 응답하지 않습니다. 서버 WARN 로그에는 안전하게 분류한 실패 사유와 확인 안내를 기록하며, [로그 확인 안내](environment-variables.md#로그인-실패-서버-로그)를 따릅니다.
 - `AUTH_ENABLED=false`이면 OAuth 시작·콜백 기능을 활성화하지 않습니다. 공개 동아리 조회·CSRF API는 유지하며 보호 API는 인증이 필요합니다.
-- `/me`의 role은 USER / ADMIN / SUPER_ADMIN입니다. 기존 세션에서도 매 요청 DB 역할을 반영합니다. SUPER_ADMIN은 ADMIN 운영 권한을 포함하고 동아리별 회장·주최자·부원 조건은 별도로 검사합니다. 현재 권한 관리 API는 미구현입니다.
+- `/me`의 role은 USER / ADMIN / SUPER_ADMIN입니다. 기존 세션에서도 매 요청 DB 역할을 반영합니다. SUPER_ADMIN은 ADMIN 운영 권한을 포함하고 동아리별 회장·주최자·부원 조건은 별도로 검사합니다. 권한 관리는 아래 구현 계약을 따릅니다.
 - `/me`에 이메일·42 API 토큰·42 전체 프로필은 포함하지 않습니다. 사용자 계정은 42 ID 기준으로 중복을 방지하고 역할은 DB 기준입니다.
 - JWT 재발급·다른 소셜 계정 연동·사이트 계정 탈퇴는 제공하지 않습니다. 블랙홀 확인과 기존 세션 이용 차단은 MVP에서 제외하며 추후 확장 시 검토합니다.
 
@@ -153,24 +157,54 @@ operationStatus 생략 시 ACTIVE만 조회합니다. 빈 매개변수는 page·
 
 위 오류는 동아리 조회 계약입니다. 인증 오류는 위 인증 계약을 따르며 새 쓰기 API의 충돌 오류는 구현 시 확정합니다.
 
+## 사용자 검색·권한 관리 — 구현 계약
+
+세션 인증을 사용하며 아래 경로는 `/api/v1` 접두사를 포함합니다. 권한은 매 요청 DB 기준으로 검사합니다.
+
+| 메서드 | 경로 | 기능 | 권한 | 성공 |
+| --- | --- | --- | --- | --- |
+| GET | /api/v1/admin/users | 사용자 검색, 선택적 role=ADMIN 필터 | ADMIN·SUPER_ADMIN; 역할 필터는 SUPER_ADMIN 전용 | 200 |
+| PUT | /api/v1/admin/users/{userId}/admin-role | ADMIN 부여 | SUPER_ADMIN | 204 |
+| DELETE | /api/v1/admin/users/{userId}/admin-role | ADMIN 회수, USER로 변경 | SUPER_ADMIN | 204 |
+| GET | /api/v1/admin/clubs/{clubId}/managers | 해당 동아리 회장 목록 | SUPER_ADMIN | 200 |
+| PUT | /api/v1/admin/clubs/{clubId}/managers/{userId} | 회장 권한 부여 | SUPER_ADMIN | 204 |
+| DELETE | /api/v1/admin/clubs/{clubId}/managers/{userId} | 회장 권한 회수 | SUPER_ADMIN | 204 |
+
+### 검색·목록 요청과 응답
+
+- 사용자 검색의 `intraLogin`은 생략 가능하며 생략 시 전체 사용자를 조회합니다. 지정하면 1~100자이며 공백만 있는 값·빈 값은 400입니다. 앞뒤 공백을 제거한 뒤 대소문자를 구분하지 않고 로그인명에 부분 일치합니다. `%`·`_`·역슬래시는 검색 와일드카드가 아닌 일반 문자입니다.
+- `role`은 생략하거나 정확히 `ADMIN`만 지정합니다. 빈 값·다른 역할은 400입니다. `role=ADMIN`은 SUPER_ADMIN을 포함하지 않는 정확한 ADMIN 목록이며 `intraLogin`과 AND로 조합합니다. ADMIN이 유효한 역할 필터를 지정하면 403입니다.
+- 사용자 검색과 회장 목록은 `page=0`, `size=20`이 기본입니다. page는 0 이상, size는 1~100이며 빈 page·size는 기본값입니다. 범위 초과·형식 오류는 400입니다. 사용자 검색은 사용자 ID, 회장 목록은 회장 사용자 ID 오름차순으로 고정합니다.
+- 응답은 `content`, `page`, `size`, `totalElements`, `totalPages`입니다. 결과가 없거나 페이지를 벗어나면 200과 빈 content입니다. 회장 목록은 해당 clubId 관계만 포함합니다.
+- ADMIN의 사용자 검색 항목은 `id`·`intraLogin`·`displayName`만 제공합니다. SUPER_ADMIN의 사용자 검색에는 `role`을 추가합니다. 회장 목록 항목은 역할을 제외한 사용자 요약입니다. 42 고유 ID·원본 프로필·이메일은 노출하지 않습니다.
+
+SUPER_ADMIN의 `GET /api/v1/admin/users?intraLogin=chair&page=0&size=20` 응답 예시:
+
+```json
+{
+  "content": [{"id": 42, "intraLogin": "chair", "displayName": "Chair", "role": "USER"}],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1
+}
+```
+
+ADMIN에게는 위 항목의 `role` 필드가 없으며, 회장 목록도 같은 방식으로 role을 제외합니다.
+
+### 권한 변경·오류 계약
+
+- 경로 ID는 1 이상의 Java long 범위 정수이며 잘못된 값은 400 `INVALID_REQUEST`입니다. 모든 변경 요청은 본문 없이 세션 쿠키와 CSRF 헤더를 사용합니다.
+- 반복 부여·회수는 204입니다. 이미 USER인 사용자의 ADMIN 회수와 존재하지 않는 회장 관계의 회수도 성공합니다. 단, 대상 사용자·동아리가 실제로 없으면 404 `RESOURCE_NOT_FOUND`입니다.
+- SUPER_ADMIN을 대상으로 ADMIN 부여·회수를 시도하면 본인·타인 모두 409 `SUPER_ADMIN_ROLE_PROTECTED`입니다. 최고 관리자 자체 지정·회수는 별도 운영 DB 절차를 유지합니다.
+- 인증 없는 요청은 401 `UNAUTHENTICATED`, 권한 부족·CSRF 누락/불일치는 403 `ACCESS_DENIED`입니다. CSRF 검사가 먼저 적용되므로 인증 없이 CSRF도 빠진 변경 요청은 403일 수 있습니다.
+- ADMIN 변경은 대상 사용자 행 잠금, 회장 변경은 대상 동아리 행 잠금으로 직렬화합니다. 회장 유니크 제약도 유지하며 동시 반복 요청에서 중복 관계를 만들지 않습니다.
+- 동아리 운영 상태와 관계없이 회장 관계를 부여·회수할 수 있습니다. 활동·공지 작성에는 별도로 ACTIVE 동아리의 현재 회장 관계가 필요합니다. 다른 동아리 관계는 변경하지 않습니다.
+- 역할 회수는 기존 세션의 다음 요청부터, 회장 회수는 다음 권한 검사부터 반영됩니다. 회장 지정으로 부원 관계를 생성하지 않으며 권한 변경으로 계정·부원·게시물·참가 기록을 삭제하지 않습니다.
+
 ## MVP API — 미구현
 
 아래 경로는 `/api/v1` 접두사를 생략했습니다. 글 생성·조회와 본인 선착순 참가·취소를 우선하며, 글 수정·일정 변경과 나머지 운영 API는 [후속 API](future-design.md#후속-api-초안)에서 별도 관리합니다.
-
-### 최고 관리자 권한 관리
-
-아래는 신규 MVP 설계이며 아직 구현되지 않았습니다. SUPER_ADMIN이 ADMIN 운영 권한을 포함하는 보안 기반은 구현되었습니다. `/admin/users` 검색은 기존 부원 등록용 API를 재사용하고 응답에 현재 역할을 추가할 예정입니다. 권한 관리 대상은 서비스에 등록된 사용자입니다. SUPER_ADMIN도 활동 작성에는 회장 관계, 출결 처리에는 주최자 관계, 부원 명단 조회에는 ACTIVE 부원 관계가 필요합니다.
-
-| 메서드 | 경로 | 기능 | 권한 |
-| --- | --- | --- | --- |
-| GET | /admin/users?role=ADMIN | 현재 ADMIN 목록, 기존 intraLogin 검색과 조합 가능 | SUPER_ADMIN |
-| PUT | /admin/users/{userId}/admin-role | ADMIN 부여 | SUPER_ADMIN |
-| DELETE | /admin/users/{userId}/admin-role | ADMIN 회수, USER로 변경 | SUPER_ADMIN |
-| GET | /admin/clubs/{clubId}/managers | 해당 동아리 회장 목록 | SUPER_ADMIN |
-| PUT | /admin/clubs/{clubId}/managers/{userId} | 회장 권한 부여 | SUPER_ADMIN |
-| DELETE | /admin/clubs/{clubId}/managers/{userId} | 회장 권한 회수 | SUPER_ADMIN |
-
-목록은 기존 GET /admin/users에 role 필터를 추가하는 확장 계약이므로 새 경로 수에는 포함하지 않습니다. 위 표의 6개 중 신규 경로는 5개입니다. ADMIN 역할·회장 관계는 반복 요청으로 중복 생성하지 않습니다. 회수는 사용자나 게시물 삭제가 아닙니다. SUPER_ADMIN 대상 역할 변경은 거절하고 ADMIN이 다른 사용자의 권한을 부여·회수할 수 없도록 검사합니다.
 
 ### 동아리 활동·공지
 
@@ -211,12 +245,11 @@ POST /gatherings/{gatheringId}/sessions는 새 회차의 일시·장소·정원�
 
 | 메서드 | 경로 | 기능 | 권한 |
 | --- | --- | --- | --- |
-| GET | /admin/users?intraLogin=... | 부원 등록 대상 사용자 검색 | ADMIN |
 | GET | /admin/users/{userId}/clubs | 현재 가입 동아리·한도 집계 조회 | ADMIN |
 | PUT | /admin/clubs/{clubId}/members/{userId} | 기존 부원 직접 등록·재등록 | ADMIN, 대상 동아리 ACTIVE |
 | GET | /clubs/{clubId}/members | 현재 ACTIVE 부원 명단 | 해당 동아리 ACTIVE 부원 |
 
-별도 본인 가입 신청·승인 대기 API는 만들지 않습니다. 명단 접근은 [회원 정책](domain-model.md#동아리-회원-명단-조회--확정)을 유지합니다. ADMIN·ClubManager만으로 전체 부원 명단을 열람할 수는 없습니다. ADMIN의 사용자 검색 결과는 내부 ID·Intra 로그인명·표시 이름으로 제한합니다. SUPER_ADMIN의 권한 관리용 응답에는 현재 역할을 추가합니다.
+부원 등록 대상 검색은 위 구현된 `/api/v1/admin/users`를 재사용합니다. 별도 본인 가입 신청·승인 대기 API는 만들지 않습니다. 명단 접근은 [회원 정책](domain-model.md#동아리-회원-명단-조회--확정)을 유지합니다. ADMIN·ClubManager만으로 전체 부원 명단을 열람할 수는 없습니다. ADMIN의 사용자 검색 결과는 내부 ID·Intra 로그인명·표시 이름으로 제한합니다. SUPER_ADMIN의 권한 관리용 응답에는 현재 역할을 추가합니다.
 
 ### 기본 출결
 
