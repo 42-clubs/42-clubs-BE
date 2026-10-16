@@ -14,6 +14,22 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalid(IllegalArgumentException exception) {
+        return ResponseEntity.badRequest()
+                .body(new ApiErrorResponse("INVALID_REQUEST", exception.getMessage()));
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(
+            org.springframework.web.multipart.MaxUploadSizeExceededException exception,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
+        return ResponseEntity.status(413)
+                .body(new ApiErrorResponse("PAYLOAD_TOO_LARGE", "사진 또는 요청 용량이 제한을 초과했습니다."));
+    }
+
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ApiErrorResponse> handleConflict(ConflictException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)

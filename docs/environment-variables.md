@@ -107,3 +107,16 @@ docker compose up -d --wait
 각 hint는 확인할 후보이며 원인을 확정하는 메시지는 아닙니다. 제공자가 알려주지 않은 세부 원인은 구분할 수 없습니다.
 예외 메시지·스택 트레이스·제공자 응답 원문·요청 URL/매개변수·쿠키·이메일·프로필·Secret·토큰은 이 로그에 기록하지 않습니다.
 알 수 없는 외부 오류 코드도 원문 대신 `unknown_oauth_error`로 기록합니다.
+
+## 활동 사진 저장소
+
+| 이름 | 용도 | 기본값 | 필수 조건 | 사용 대상 |
+| --- | --- | --- | --- | --- |
+| PHOTO_S3_BUCKET | 활동 사진 S3 버킷 이름 | 빈 값 | 사진 첨부 시 필수 | 백엔드 |
+| PHOTO_S3_REGION | 버킷 리전 | ap-northeast-2 | 사진 첨부 시 버킷 리전과 일치 | 백엔드 |
+| PHOTO_PUBLIC_BASE_URL | 사진 조회용 HTTPS 기본 URL | 빈 값 | 선택; 공개 이미지 도메인 사용 시 | 백엔드 응답·프론트 이미지 조회 |
+
+로컬에서는 기존 S3 버킷 이름·리전을 셸 또는 IDE에 설정합니다. 자격증명은 AWS SDK 기본 자격증명 체인(AWS 프로필·환경변수·배포 실행 역할)을 사용하며 저장소에 비밀값을 기록하지 않습니다. 저장소 미설정이어도 사진 없는 활동 등록은 가능합니다. 사진 첨부는 503 STORAGE_UNAVAILABLE입니다.
+기본 URL이 없으면 비공개 버킷의 15분 만료 서명 GET URL을 반환합니다. 프론트는 만료 시 활동을 재조회합니다. 기본 URL이 있으면 해당 도메인이 storage_key 경로의 사진을 실제로 제공하도록 배포 환경에서 구성해야 합니다. 버킷 생성·공개 권한 변경은 이 애플리케이션에서 수행하지 않습니다.
+배포 시 HTTPS·저장 암호화를 사용하고 실행 주체에는 해당 버킷 activities/ 경로의 PutObject/GetObject/DeleteObject 권한만 부여합니다. 접근 로그·CloudTrail 데이터 이벤트·CloudWatch 지표 활성화를 권장하며 저장·요청·전송·관측 비용이 발생할 수 있습니다. [S3 모니터링](https://docs.aws.amazon.com/AmazonS3/latest/userguide/monitoring-overview.html), [S3 요금](https://aws.amazon.com/s3/pricing/)을 참고합니다.
+전체 multipart 요청은 27MB, 파일은 5MB로 제한하며 최대 5장입니다. 정리 대기 파일 키는 image_uploads에 먼저 기록하고 성공한 DB 트랜잭션에서 제거합니다. 실패 요청은 즉시 삭제를 시도하고, 삭제 실패 또는 프로세스 중단으로 남은 키는 10분 후부터 1분 간격으로 최대 100건씩 재시도합니다.

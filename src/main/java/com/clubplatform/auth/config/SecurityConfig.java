@@ -56,7 +56,13 @@ public class SecurityConfig {
                                                 "/api/v1/clubs/{clubId}",
                                                 "/api/v1/auth/csrf",
                                                 "/api/v1/clubs/{clubId}/notices",
-                                                "/api/v1/notices/{noticeId}")
+                                                "/api/v1/notices/{noticeId}",
+                                                "/api/v1/clubs/{clubId}/activities",
+                                                "/api/v1/activities/{activityId}",
+                                                "/api/v1/gatherings",
+                                                "/api/v1/gatherings/{gatheringId}",
+                                                "/api/v1/gatherings/{gatheringId}/sessions",
+                                                "/api/v1/gathering-sessions/{sessionId}")
                                         .permitAll()
                                         .requestMatchers("/", "/error")
                                         .permitAll()

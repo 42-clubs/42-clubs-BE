@@ -63,27 +63,25 @@ OAuth 인가 요청은 Spring Security의 기본 서버 세션 저장소를 사�
 
 ## 실제 구현: 동아리 회장 권한 검사
 
-`ClubPermissionService.requireManager(actorId, clubId)`는 현재 DB에서 대상 동아리 존재(없으면 404), ACTIVE 상태와 해당 사용자의 ClubManager 관계(없거나 ARCHIVED면 403)를 확인합니다. USER/ADMIN/SUPER_ADMIN 모두 같은 관계 조건을 적용하고 제거된 회장 관계는 다음 요청부터 반영합니다. 다른 기능은 이 서비스를 호출하며 club Repository를 직접 참조하지 않습니다. 부원·주최자 권한 검사는 각 기능 구현 단계에서 추가합니다.
+`ClubPermissionService.requireManager(actorId, clubId)`는 현재 DB에서 대상 동아리 존재(없으면 404), ACTIVE 상태와 해당 사용자의 ClubManager 관계(없거나 ARCHIVED면 403)를 확인합니다. USER/ADMIN/SUPER_ADMIN 모두 같은 관계 조건을 적용하고 제거된 회장 관계는 다음 요청부터 반영합니다. 다른 기능은 이 서비스를 호출하며 club Repository를 직접 참조하지 않습니다. 부원 명단 권한은 ClubMembershipService, 참가·출결 주최자 권한은 ActivityParticipationService·SessionParticipationService에서 검사합니다.
 
-## 예시: 동아리 활동 등록
+## 실제 구현: 동아리 활동 등록
 
 ```text
-ActivityController.create(request, 로그인 사용자)
-  → ActivityService.create(actorId, clubId, command) [트랜잭션 시작]
-      → ClubPermissionService.requireManager(actorId, clubId)
-          → club 내부 Repository로 관리 권한 확인
-      → Activity 생성: 최초 작성자·주최자·소속 동아리와 입력 값 설정
-      → ActivityRepository.save(activity)
-      → 응답에 필요한 결과 구성
-    [트랜잭션 커밋]
-  → Controller에서 HTTP 응답 생성
+ActivityController.create → ActivityCreationService.create
+  → ClubPermissionService.requireManager, 입력·사진 검증
+  → ImageUploadJournal.reserve [독립 트랜잭션] → S3 업로드
+  → ActivityWriter.create [트랜잭션]
+      → 회장·일정 재검증 → 활동·주최자 참가·사진 저장 → 업로드 저널 제거
+  → 실패 시 PhotoCleanup.remove, 남은 저널은 주기적 정리 재시도
 ```
 
-위 활동 등록은 미구현 예시입니다. 실제 구현에서는 활동과 주최자 참가 관계를 함께 저장하고 사진 연결·정원·마감 계약도 적용해야 합니다.
+외부 저장소 호출은 활동 저장 트랜잭션 밖에서 수행합니다. 저널을 업로드 전에 기록하여 업로드 실패·DB 실패·프로세스 중단 후에도 파일 정리를 재시도할 수 있습니다.
+
 협력 기능에는 `requireManager`, `requireExistingUser`처럼 목적이 드러나는 메서드를 요청하며 다른 기능의 Repository를 직접 주입하지 않습니다.
 
 최초 작성자와 지정 주최자의 의미 및 권한은 [도메인 정책](domain-model.md#동아리-활동-주최자--확정)을 따릅니다.
-실제 API 계약은 DTO 설계 시 확정합니다.
+실제 필드·응답·오류 계약은 [API 명세](api-endpoints.md)와 [연동 예시](mvp-api-examples.md)를 따릅니다.
 
 ## 권한·호출 방향 점검
 

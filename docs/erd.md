@@ -1,16 +1,16 @@
 # 데이터 모델과 ERD
 
 실제 DB에는 `users`([V1](../src/main/resources/db/migration/V1__create_users.sql))와 `clubs`([V2](../src/main/resources/db/migration/V2__create_clubs.sql)), `club_managers`([V3](../src/main/resources/db/migration/V3__add_super_admin_and_club_managers.sql))가 있습니다. V3는 users.role CHECK에도 SUPER_ADMIN을 추가합니다.
-club_members(V4)·notices(V5)도 구현했습니다. 아래 나머지 테이블은 [현재 MVP](domain-model.md#축소-mvp--2026-10-14-확정)를 위한 미구현 설계 초안입니다. 부원·기본 출결은 아래 MVP 설계에 포함하고 참가 승인제·고정 멤버는 [후속 스키마](future-design.md#후속-스키마)에 분리합니다.
+V4에 club_members, V5에 notices, V6에 activities·activity_images·activity_participants·image_uploads, V7에 gatherings·gathering_sessions·gathering_session_participants를 구현했습니다. 부원·기본 출결은 아래 MVP 설계에 포함하고 참가 승인제·고정 멤버는 [후속 스키마](future-design.md#후속-스키마)에 분리합니다.
 
 - [관계도](#관계도) · [공통 규칙](#공통-규칙)
 - 구현됨: [users](#users) · [clubs](#clubs) · [관리 권한](#club_managers)
-- 설계: [부원](#club_members) · [활동](#activities) · [공지](#notices) · [소모임](#gatherings) · [회차](#gathering_sessions) · [회차 참가](#gathering_session_participants) · [활동 참가](#activity_participants) · [사진](#activity_images)
-- [인덱스](#초기-인덱스) · [남은 설계](#구현-전-확정할-사항)
+- 구현됨: [부원](#club_members) · [활동](#activities) · [공지](#notices) · [소모임](#gatherings) · [회차](#gathering_sessions) · [회차 참가](#gathering_session_participants) · [활동 참가](#activity_participants) · [사진](#activity_images)
+- [인덱스](#초기-인덱스) · [잠금·정리 정책](#구현된-잠금정리-정책)
 
 ## 관계도
 
-users·clubs·club_managers 이외의 관계는 구현 예정입니다. 아래 도식에는 부원·기본 출결을 포함하며 고정 멤버 관계는 후속 설계입니다.
+아래 관계는 V1~V7에 구현되어 있습니다. 아래 도식에는 부원·기본 출결을 포함하며 고정 멤버 관계는 후속 설계입니다.
 
 ```mermaid
 erDiagram
@@ -123,7 +123,7 @@ V3로 구현되었습니다. 동아리별 조회용 INDEX(club_id)도 적용했�
 - 가입 한도는 회원 status와 동아리 operation_status를 함께 조회해 계산하며 별도 집계 컬럼을 두지 않습니다. LEFT 행은 현재 가입 목록·한도에서 제외하며 DB에는 보존합니다. 집계 기준은 [가입 한도 정책](domain-model.md#동아리-가입-한도--확정)을 따릅니다.
 - approved_by의 ADMIN 권한은 가입 등록·재가입 유스케이스에서 검증합니다. FK만으로 등록 권한을 판단하지 않습니다.
 - 본인 탈퇴 신청·승인 및 개별 탈퇴 처리는 [추후 확장](future-design.md#동아리-탈퇴-신청승인--추후-확장)이며 MVP에 신청 테이블·대기 상태를 추가하지 않습니다. LEFT와 left_at은 아카이브 일괄 처리에 사용합니다.
-- V4에 구현했습니다. 가입 수를 강제 제한하는 DB 제약은 도입하지 않습니다. 업무 기준은 [가입 관계 정책](domain-model.md#동아리-가입-관계--확정)을 따릅니다.
+- V4 마이그레이션에 구현했습니다. 가입 수를 강제 제한하는 DB 제약은 도입하지 않습니다. 업무 기준은 [가입 관계 정책](domain-model.md#동아리-가입-관계--확정)을 따릅니다.
 
 ## activities
 
@@ -136,7 +136,7 @@ V3로 구현되었습니다. 동아리별 조회용 INDEX(club_id)도 적용했�
 | title | VARCHAR(200) | O | 제목 |
 | content | TEXT | O | 활동 내용 |
 | starts_at | TIMESTAMPTZ | O | 개최 날짜·시각; Asia/Seoul 날짜로 D-Day 계산 |
-| capacity | INTEGER | O | 활동 참가 총정원, 주최자 포함, 1 이상; 설계 초안 |
+| capacity | INTEGER | O | 활동 참가 총정원, 주최자 포함, 1 이상 |
 | recruitment_closes_at | TIMESTAMPTZ | O | 모집 마감 날짜·시각, starts_at보다 이전 |
 | created_at | TIMESTAMPTZ | O | 등록 시각 |
 | updated_at | TIMESTAMPTZ | O | 수정 시각 |
@@ -166,12 +166,13 @@ V3로 구현되었습니다. 동아리별 조회용 INDEX(club_id)도 적용했�
 | --- | --- | --- | --- |
 | id | BIGINT | O | PK |
 | organizer_id | BIGINT | O | FK → users.id, 생성자·주최자 |
-| title | VARCHAR(200) | O | 소모임 모집 글 제목, 설계 초안 |
-| content | TEXT | O | 소모임 모집 글 내용, 설계 초안 |
-| capacity | INTEGER | O | 새 회차의 기본 정원, 주최자 포함, 1 이상 |
+| title | VARCHAR(200) | O | 소모임 모집 글 제목 |
+| content | TEXT | O | 소모임 모집 글 내용 |
 | deleted_at | TIMESTAMPTZ | X | NULL이면 미삭제, 일반 조회 제외용; 삭제 API는 후속 |
 
 gatherings는 지속되는 모임 정보를, gathering_sessions는 각 개최 일정을 저장합니다. 여러 회차를 생성해도 같은 gathering ID를 유지합니다. 참가 방식은 FIRST_COME로 고정합니다. 진행 유형·참여 단위·승인제 컬럼은 [확장 필드](future-design.md#소모임-확장-필드)에서 관리합니다. 기본 이미지는 공통 표시 자산으로 별도 업로드 컬럼을 필수로 요구하지 않습니다.
+
+gatherings에는 created_at·updated_at(TIMESTAMPTZ NOT NULL)을 둡니다. 정원은 각 회차에만 저장합니다.
 
 ## gathering_sessions
 
@@ -180,18 +181,20 @@ gatherings는 지속되는 모임 정보를, gathering_sessions는 각 개최 �
 | id | BIGINT | O | PK |
 | gathering_id | BIGINT | O | FK → gatherings.id |
 | starts_at / ends_at | TIMESTAMPTZ | O | 실제 회차 시작·종료, 종료 > 시작 |
-| location | VARCHAR(255) | O | 개최 장소 (길이 초안) |
+| location | VARCHAR(255) | O | 개최 장소 |
 | capacity | INTEGER | O | 주최자 포함 회차 정원, 1 이상 |
-| recruitment_opens_at | TIMESTAMPTZ | 조건부 | 회차 모집 공개 시각 |
+| recruitment_opens_at | TIMESTAMPTZ | O | 생성 시각, 즉시 모집 공개 |
 | recruitment_closes_at | TIMESTAMPTZ | O | 회차 모집 마감 날짜·시각 |
 | cancelled_at | TIMESTAMPTZ | X | 회차 취소 시각 |
 
 - 공개 <= 시작 - 2시간, 공개 < 마감 < 시작을 검증합니다. 신규 공개 시 과거 시각 지정은 거부합니다.
-- 조기 마감·실제 공개 시각 감사 정보는 API 상세 설계와 함께 컬럼을 보완합니다.
+- 조기 마감 API는 후속입니다. recruitment_opens_at에는 생성 시각을 기록합니다.
 - 글 작성 시 gatherings·첫 gathering_sessions·주최자의 CONFIRMED 참가 행을 같은 트랜잭션에서 생성합니다.
 - 다음 회차는 동일한 gathering_id로 새 행을 추가하고 주최자의 참가 행을 함께 생성합니다. 일시·장소·정원·모집 마감은 회차별 값이며 기존 회차의 값을 변경하지 않습니다.
 - 이전 회차의 참가·출결 행은 보존하고 다음 회차로 복사하지 않습니다. 동일 사용자라도 회차가 다르면 별도 참가 관계입니다.
 - 수동 회차 추가에는 새 테이블이 필요하지 않습니다. 반복 일정 자동 생성 규칙·고정 멤버 관계는 후속 설계입니다.
+
+gathering_sessions에도 created_at·updated_at(TIMESTAMPTZ NOT NULL)을 둡니다.
 
 ## gathering_session_participants
 
@@ -238,7 +241,7 @@ UNIQUE(activity_id, user_id)로 중복 참가를 방지합니다. 취소·재참
 | sort_order | INTEGER | O | 사진 표시 순서, 0 이상 |
 | created_at | TIMESTAMPTZ | O | 사진 연결 시각 |
 
-사진은 [선택 첨부 정책](domain-model.md#활동-사진--확정)을 따릅니다. 사진이 없는 활동은 이 테이블에 행을 만들지 않으며 기본 이미지용 행도 저장하지 않습니다. UNIQUE(activity_id, sort_order)와 sort_order >= 0 CHECK를 적용하고 가장 작은 sort_order의 사진을 대표 이미지로 사용합니다. 최대 개수·파일 검증은 서비스에서 처리합니다. 백엔드는 storage_key를 바탕으로 프론트엔드가 조회할 수 있는 이미지 URL을 구성하여 응답합니다. 이 정의는 미구현 설계 초안입니다.
+사진은 [선택 첨부 정책](domain-model.md#활동-사진--확정)을 따릅니다. 사진이 없는 활동은 이 테이블에 행을 만들지 않으며 기본 이미지용 행도 저장하지 않습니다. UNIQUE(activity_id, sort_order)와 sort_order >= 0 CHECK를 적용하고 가장 작은 sort_order의 사진을 대표 이미지로 사용합니다. 최대 개수·파일 검증은 서비스에서 처리합니다. 백엔드는 storage_key를 바탕으로 프론트엔드가 조회할 수 있는 이미지 URL을 구성하여 응답합니다. 이 정의는 V6에 구현했습니다.
 
 ## 초기 인덱스
 
@@ -259,11 +262,11 @@ UNIQUE(activity_id, user_id)로 중복 참가를 방지합니다. 취소·재참
 
 PK에는 기본 인덱스가 존재합니다. 추가 인덱스는 API 조회 조건과 실행 계획을 확인하며 결정합니다.
 
-## 구현 전 확정할 사항
+## 구현된 잠금·정리 정책
 
-- 별도 파일 저장소의 구체적인 제품·연결 설정·이미지 URL 구성과 실패 파일 정리 재시도 구현: [남은 결정](domain-model.md#남은-결정-사항) 이후 구체화
-- 동시 정원 보장을 위한 잠금 또는 원자적 갱신 전략; 현재 인원 파생값만 조회한 뒤 저장하는 방식은 정원을 보장하지 못함
-- 소모임의 추가 생성·수정 시각 컬럼
-- API 조회 조건에 맞춘 추가 인덱스와 참가 상태 CHECK 제약
+- 부원 등록은 동아리 행, 활동 참가·취소·출결은 활동 행, 회차 참가·취소·출결은 회차 행의 비관적 쓰기 잠금을 사용합니다. 정원 검사·집계·저장은 같은 트랜잭션입니다.
+- 모임·회차는 created_at·updated_at을 필수로 저장합니다. 모임의 중복 정원 컬럼은 없으며 회차 정원을 사용합니다.
+- image_uploads는 storage_key(TEXT PK)·created_at(TIMESTAMPTZ NOT NULL)과 생성 시각 인덱스로 구성합니다. 독립 트랜잭션으로 업로드 전에 기록하고, 활동·사진 저장 트랜잭션에서 제거합니다. 정리 작업과 사진 연결은 저널 행 잠금으로 직렬화합니다.
+- 사용자별 참가 유니크·참가 상태 CHECK·출결 체크 정보 일관성 CHECK를 V6·V7에 적용했습니다. 인덱스는 마이그레이션이 기준이며 운영 실행 계획에 따라 추가합니다.
 
-반복 일정 자동 생성·고정 멤버·참가 승인제 스키마는 범위 합의 없이 최초 MVP 마이그레이션에 포함하지 않습니다.
+반복 일정 자동 생성·고정 멤버·참가 승인제 스키마는 범위 합의 없이 MVP 마이그레이션에 포함하지 않습니다.

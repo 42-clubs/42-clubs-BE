@@ -54,15 +54,15 @@ Spotless는 Google Java Format AOSP 스타일을 적용하며 빌드 중에는 �
 | 실행·DB 기반 | 완료: Java 17, Spring Boot, JPA, Flyway, PostgreSQL Compose, Spotless·Lombok |
 | 동아리 공개 조회 | 완료: 목록·상세, 페이지네이션·운영 상태 필터·모집 표시 |
 | 인증·내 정보 | 완료: 42경산 OAuth, 세션·CSRF·로그아웃·USER/ADMIN/SUPER_ADMIN 검사; 실제 42 자격증명 연동 확인 필요 |
-| DB 스키마 | users(V1, V3)·clubs(V2)·club_managers(V3) 구현; club_members(V4)·notices(V5) 추가, 나머지는 설계 초안 |
+| DB 스키마 | V1~V7 구현: 사용자·동아리·권한·부원·공지·활동/사진/참가·소모임/회차/참가·사진 정리 저널 |
 | 역할·회장 권한 기반 | 완료: SUPER_ADMIN의 ADMIN 운영 권한 포함, ACTIVE 동아리별 회장 관계 검사, [초기 DB 입력 절차](docs/initial-data-setup.md); 사용자 검색·SUPER_ADMIN의 ADMIN/회장 권한 관리 API 구현 완료 |
-| 부원·공지 | 완료: 부원 등록·현황·명단, 공지 작성·공개 조회 |
-| 활동·소모임 | 미구현: [현재 MVP 범위](docs/domain-model.md#축소-mvp--2026-10-14-확정)에 따라 작성·조회·소모임 회차 추가·선착순 참가·기본 출결 구현 예정 |
+| 부원·활동·공지·소모임 | 완료: 부원 등록·명단, 공지·활동·사진, 소모임·회차, 선착순 참가·취소·기본 출결; 사진 첨부는 [S3 설정](docs/environment-variables.md#활동-사진-저장소) 필요 |
 | Swagger/OpenAPI | 미도입: Boot 3.5 호환 springdoc 2.8.x의 패치 버전 결정 필요 |
 | CI·배포 | GitHub Actions CI 미도입; 배포 대상·애플리케이션 컨테이너화·CD 미정 |
 
-사용자 검색·권한 관리·부원·공지까지 구현했습니다. 다음 구현은 [MVP API 구현 순서](docs/api-endpoints.md#먼저-구현할-순서)에 따라 활동·출결 → 소모임·회차·출결로 진행합니다. 각 기능 착수 시 관련 [미정 정책](docs/domain-model.md#남은-결정-사항)과 [API 계약](docs/api-endpoints.md#구현-전-확정할-계약)을 확정합니다.
-부원 직접 등록·명단과 기본 출결은 MVP 설계에 포함합니다. 글 수정·일정 변경 등 확장은 [후속 설계](docs/future-design.md)에서 확인합니다.
+[MVP 구현 계획](docs/mvp-implementation-plan.md)의 0~7단계와 신규 업무 API 31개를 구현했습니다. 실제 42 로그인·프론트엔드 연동, 운영 초기 데이터 입력과 S3 버킷·자격증명·이미지 조회 경로 설정은 배포 환경에서 확인해야 합니다.
+사진 저장은 S3를 사용하며 이미지 도메인 또는 만료되는 서명 GET URL을 응답합니다. 사진을 첨부하지 않는 활동 등록은 저장소 설정 없이 가능합니다.
+글 수정·일정 변경 등 확장은 [후속 설계](docs/future-design.md)에서 확인합니다.
 
 ## 문서 안내
 
@@ -72,7 +72,7 @@ Spotless는 Google Java Format AOSP 스타일을 적용하며 빌드 중에는 �
 | 구현된 API와 새 API 초안 | [API 명세](docs/api-endpoints.md) |
 | 기능별 엔드포인트 구현 순서·DB 작업·완료 조건 | [MVP 구현 계획](docs/mvp-implementation-plan.md) |
 | 초기 동아리·회장·최고 관리자 DB 입력 | [초기 데이터 절차](docs/initial-data-setup.md) |
-| 실제 DB·관계도·미구현 스키마 | [ERD](docs/erd.md) |
+| 실제 DB·관계도·제약조건 | [ERD](docs/erd.md) |
 | 패키지·계층·의존성·DB 운영 규칙 | [아키텍처](docs/architecture.md) |
 | 실제 코드 흐름과 구현 시 확인 사항 | [모듈 가이드](docs/module-development.md) |
 | 환경변수·로컬 로그인·문제 해결 | [환경변수](docs/environment-variables.md) |

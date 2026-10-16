@@ -24,7 +24,7 @@ flowchart TB
             Club[club]
             Activity[activity]
             Notice[notice]
-            Gathering[gathering — 추가 예정]
+            Gathering[gathering]
         end
         subgraph Layers[각 기능 내부의 계층]
             Controller[Controller] --> Service[Service]
@@ -48,7 +48,7 @@ flowchart TB
 | user | 교육생 계정·사용자 정보, 운영 사용자 검색·ADMIN 역할 관리 |
 | club | 동아리 기본 정보·운영 상태·기존 모집 정보, 관리 권한·부원 등록·명단 |
 | activity | 동아리 활동·사진·선착순 참가·취소·기본 출결 |
-| gathering (추가 예정) | 소모임·첫 회차 동시 생성, 다음 회차 추가·조회, 회차별 참가·취소·출결 |
+| gathering | 소모임·첫 회차 동시 생성, 다음 회차 추가·조회, 회차별 참가·취소·출결 |
 | notice | 동아리별 공지사항 |
 | global | 기술 공통 설정, 예외 처리, 보안 인프라 |
 
