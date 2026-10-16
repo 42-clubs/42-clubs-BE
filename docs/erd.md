@@ -234,11 +234,11 @@ UNIQUE(activity_id, user_id)로 중복 참가를 방지합니다. 취소·재참
 | --- | --- | --- | --- |
 | id | BIGINT | O | PK |
 | activity_id | BIGINT | O | FK → activities.id |
-| storage_key | TEXT | O | 서버가 생성한 파일 저장 위치 식별자, UNIQUE |
+| storage_key | TEXT | O | 별도 파일 저장소에서 서버가 생성한 파일 식별자, UNIQUE; 전체 조회 URL은 저장하지 않음 |
 | sort_order | INTEGER | O | 사진 표시 순서, 0 이상 |
 | created_at | TIMESTAMPTZ | O | 사진 연결 시각 |
 
-사진은 [선택 첨부 정책](domain-model.md#활동-사진--확정)을 따릅니다. 사진이 없는 활동은 이 테이블에 행을 만들지 않으며 기본 이미지용 행도 저장하지 않습니다. UNIQUE(activity_id, sort_order)와 sort_order >= 0 CHECK를 적용하고 가장 작은 sort_order의 사진을 대표 이미지로 사용합니다. 최대 개수·파일 검증은 서비스에서 처리합니다. 이 정의는 미구현 설계 초안입니다.
+사진은 [선택 첨부 정책](domain-model.md#활동-사진--확정)을 따릅니다. 사진이 없는 활동은 이 테이블에 행을 만들지 않으며 기본 이미지용 행도 저장하지 않습니다. UNIQUE(activity_id, sort_order)와 sort_order >= 0 CHECK를 적용하고 가장 작은 sort_order의 사진을 대표 이미지로 사용합니다. 최대 개수·파일 검증은 서비스에서 처리합니다. 백엔드는 storage_key를 바탕으로 프론트엔드가 조회할 수 있는 이미지 URL을 구성하여 응답합니다. 이 정의는 미구현 설계 초안입니다.
 
 ## 초기 인덱스
 
@@ -261,7 +261,7 @@ PK에는 기본 인덱스가 존재합니다. 추가 인덱스는 API 조회 조
 
 ## 구현 전 확정할 사항
 
-- 사진 저장소 제품·접근/조회 방식과 실패 파일 정리 재시도 구현: [남은 결정](domain-model.md#남은-결정-사항) 이후 구체화
+- 별도 파일 저장소의 구체적인 제품·연결 설정·이미지 URL 구성과 실패 파일 정리 재시도 구현: [남은 결정](domain-model.md#남은-결정-사항) 이후 구체화
 - 동시 정원 보장을 위한 잠금 또는 원자적 갱신 전략; 현재 인원 파생값만 조회한 뒤 저장하는 방식은 정원을 보장하지 못함
 - 소모임의 추가 생성·수정 시각 컬럼
 - API 조회 조건에 맞춘 추가 인덱스와 참가 상태 CHECK 제약
