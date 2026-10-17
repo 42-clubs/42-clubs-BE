@@ -12,6 +12,7 @@ public record ActivityResponse(
         Instant startsAt,
         Instant recruitmentClosesAt,
         int capacity,
+        boolean allowExternalParticipants,
         long currentParticipantCount,
         long presentParticipantCount,
         long remainingCapacity,

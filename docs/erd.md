@@ -10,7 +10,7 @@ V4에 club_members, V5에 notices, V6에 activities·activity_images·activity_p
 
 ## 관계도
 
-아래 관계는 V1~V12에 구현되어 있습니다. 아래 도식에는 부원·기본 출결을 포함하며 고정 멤버 관계는 후속 설계입니다.
+아래 관계는 V1~V13에 구현되어 있습니다. 아래 도식에는 부원·기본 출결을 포함하며 고정 멤버 관계는 후속 설계입니다.
 
 ```mermaid
 erDiagram
@@ -142,11 +142,12 @@ V3로 구현되었습니다. 동아리별 조회용 INDEX(club_id)도 적용했�
 | starts_at | TIMESTAMPTZ | O | 개최 날짜·시각; Asia/Seoul 날짜로 D-Day 계산 |
 | capacity | INTEGER | O | 활동 참가 총정원, 주최자 포함, 1 이상 |
 | recruitment_closes_at | TIMESTAMPTZ | O | 모집 마감 날짜·시각, starts_at보다 이전 |
+| allow_external_participants | BOOLEAN | O | 생성 시 필수인 외부인 참가 허용 여부, 기본값 없음. 애플리케이션에서 생성 후 변경 불가 |
 | created_at | TIMESTAMPTZ | O | 등록 시각 |
 | updated_at | TIMESTAMPTZ | O | 수정 시각 |
 | deleted_at | TIMESTAMPTZ | X | NULL이면 미삭제, 값이 있으면 논리 삭제 시각 |
 
-작성자와 주최자는 MVP에서 동일한 회장 사용자입니다. 두 컬럼을 유지하되 서버에서 인증 사용자로 설정하고 CHECK(author_id = organizer_id)를 적용하는 설계입니다. 향후 주최자 분리를 도입하면 제약을 변경합니다. 생성 시 주최자의 CONFIRMED 참가 관계도 같은 트랜잭션에서 저장합니다.
+작성자와 주최자는 MVP에서 동일한 회장 사용자입니다. 두 컬럼을 유지하되 서버에서 인증 사용자로 설정하고 CHECK(author_id = organizer_id)를 적용하는 설계입니다. 향후 주최자 분리를 도입하면 제약을 변경합니다. 생성 시 주최자의 CONFIRMED 참가 관계도 같은 트랜잭션에서 저장합니다. 외부인 참가 불허 활동은 주최자도 해당 동아리 ACTIVE 부원이어야 합니다. [V13](../src/main/resources/db/migration/V13__add_activity_external_participation.sql)은 빈 activities 테이블을 전제로 필수 컬럼만 추가하며 기존 행을 임의의 허용값으로 보정하지 않습니다. 이전 마이그레이션은 수정하지 않습니다.
 권한과 자동 참가 정책은 [활동 주최자](domain-model.md#동아리-활동-주최자--확정)를 따릅니다. capacity >= 1, recruitment_closes_at < starts_at을 검증합니다. activity_date를 중복 저장하지 않으며 개최일은 starts_at에서 계산합니다.
 
 ## notices

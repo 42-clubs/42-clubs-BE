@@ -3,6 +3,7 @@ package com.clubplatform.activity.service;
 import com.clubplatform.activity.dto.*;
 import com.clubplatform.activity.entity.*;
 import com.clubplatform.activity.repository.*;
+import com.clubplatform.club.service.ClubPermissionService;
 import com.clubplatform.global.dto.PageResponse;
 import com.clubplatform.global.exception.*;
 import com.clubplatform.user.service.UserAdministrationService;
@@ -21,6 +22,7 @@ public class ActivityParticipationService {
     private final ActivityParticipantRepository participants;
     private final UserAdministrationService users;
     private final Clock clock;
+    private final ClubPermissionService clubs;
 
     @Transactional
     public void join(long actorId, long clubId, long id) {
@@ -31,6 +33,7 @@ public class ActivityParticipationService {
         var existing = participants.findByActivityIdAndUserId(id, actorId);
         if (existing.isPresent() && "CONFIRMED".equals(existing.get().getStatus()))
             throw new ConflictException("ALREADY_JOINED", "이미 참가 중입니다.");
+        if (!resource.isAllowExternalParticipants()) clubs.requireActiveMember(actorId, clubId);
         if (participants.countByActivityIdAndStatus(id, "CONFIRMED") >= resource.getCapacity())
             throw new ConflictException("CAPACITY_FULL", "정원이 찼습니다.");
         if (existing.isPresent()) existing.get().confirm(now);

@@ -24,6 +24,7 @@ public class ActivityCreationService {
             long actorId, long clubId, ActivityRequest request, List<MultipartFile> files) {
         clubs.requireManager(actorId, clubId);
         request.validate(clock.instant());
+        if (!request.allowExternalParticipants()) clubs.requireActiveMember(actorId, clubId);
         var photos = validator.validate(files);
         var keys = new ArrayList<String>();
         try {

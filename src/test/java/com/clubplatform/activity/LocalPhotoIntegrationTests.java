@@ -77,6 +77,7 @@ class LocalPhotoIntegrationTests {
                                     now.plusSeconds(7200),
                                     now.plusSeconds(3600),
                                     2,
+                                    true,
                                     now));
             images.saveAndFlush(new ActivityImage(activity.getId(), key, 0, now));
             mvc.perform(get(url))

@@ -284,6 +284,7 @@ try {
         startsAt: instant(72),
         recruitmentClosesAt: instant(48),
         capacity: 3,
+        allowExternalParticipants: true,
     };
     // Valid one-pixel PNG; the backend decodes and re-encodes this upload.
     const png = Buffer.from(
@@ -296,6 +297,7 @@ try {
     ]);
     const aid = String(activity.id);
     const detail = await clubApi.activity("1", aid);
+    assert.equal(detail.allowExternalParticipants, true);
     assert.equal(detail.currentParticipantCount, 1);
     assert.equal(detail.presentParticipantCount, 0);
     assert.equal(detail.images.length, 1);
@@ -340,6 +342,38 @@ try {
     as("admin");
     await denied(409, () => clubApi.joinActivity("1", aid));
     await denied(403, () => clubApi.participants("1", aid));
+    done(group);
+
+    group = "immutable activity policy and member-only participation";
+    const memberOnly = { ...input, allowExternalParticipants: false };
+    as("manager");
+    await denied(403, () => clubApi.createActivity("1", memberOnly, []));
+    const missingPolicy = { ...input };
+    delete missingPolicy.allowExternalParticipants;
+    await denied(400, () => clubApi.createActivity("1", missingPolicy, []));
+    as("admin");
+    await clubApi.registerMember("1", users.manager.id);
+    as("manager");
+    const restricted = await clubApi.createActivity("1", memberOnly, []);
+    const rid = String(restricted.id);
+    assert.equal((await clubApi.activity("1", rid)).allowExternalParticipants, false);
+    await denied(405, () => http.patch(`/clubs/1/activities/${rid}`, {
+        allowExternalParticipants: true,
+    }));
+    as("outsider");
+    await denied(403, () => clubApi.joinActivity("1", rid));
+    as("admin");
+    await denied(403, () => clubApi.joinActivity("1", rid));
+    as("member");
+    await clubApi.joinActivity("1", rid);
+    await clubApi.cancelActivity("1", rid);
+    await clubApi.joinActivity("1", rid);
+    as("anonymous");
+    const publicRestricted = await clubApi.activity("1", rid);
+    assert.equal(publicRestricted.allowExternalParticipants, false);
+    assert.equal(publicRestricted.currentParticipantCount, 2);
+    assert.equal((await clubApi.activities("1")).find((item) => item.id === restricted.id)
+        .allowExternalParticipants, false);
     done(group);
 
     group = "gathering first and next session independent participation";

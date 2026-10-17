@@ -149,7 +149,7 @@ class EventIntegrationTests {
     String activityJson(int capacity) {
         return "{\"title\":\"Event\",\"content\":\"Body\",\"startsAt\":\"2030-05-02T09:00:00+09:00\",\"recruitmentClosesAt\":\"2030-05-02T08:00:00+09:00\",\"capacity\":"
                 + capacity
-                + "}";
+                + ",\"allowExternalParticipants\":true}";
     }
 
     String sessionJson(int capacity) {

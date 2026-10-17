@@ -26,6 +26,7 @@ public class ActivityWriter {
         clubs.requireManager(actorId, clubId);
         var now = clock.instant();
         request.validate(now);
+        if (!request.allowExternalParticipants()) clubs.requireActiveMember(actorId, clubId);
         var a =
                 activities.save(
                         new Activity(
@@ -36,6 +37,7 @@ public class ActivityWriter {
                                 request.startsAt().toInstant(),
                                 request.recruitmentClosesAt().toInstant(),
                                 request.capacity(),
+                                request.allowExternalParticipants(),
                                 now));
         participants.save(new ActivityParticipant(a.getId(), actorId, now));
         for (int i = 0; i < keys.size(); i++) {

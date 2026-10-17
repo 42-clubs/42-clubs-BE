@@ -96,9 +96,9 @@ class FrontendLiveIntegrationTests {
                 jdbc.queryForObject(
                         """
                 INSERT INTO activities (club_id, author_id, organizer_id, title, content, starts_at,
-                    recruitment_closes_at, capacity, created_at, updated_at)
+                    recruitment_closes_at, capacity, allow_external_participants, created_at, updated_at)
                 VALUES (106, 3, 3, 'Recorded past activity', 'Past body', now() - interval '3 hours',
-                    now() - interval '4 hours', 4, now(), now()) RETURNING id
+                    now() - interval '4 hours', 4, true, now(), now()) RETURNING id
                 """,
                         Long.class);
         jdbc.update(

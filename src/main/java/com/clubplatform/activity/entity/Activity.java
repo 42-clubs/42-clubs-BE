@@ -37,6 +37,9 @@ public class Activity {
     @Column(nullable = false)
     private int capacity;
 
+    @Column(name = "allow_external_participants", nullable = false, updatable = false)
+    private boolean allowExternalParticipants;
+
     @Column(nullable = false)
     private Instant createdAt;
 
@@ -53,6 +56,7 @@ public class Activity {
             Instant startsAt,
             Instant closesAt,
             int capacity,
+            boolean allowExternalParticipants,
             Instant now) {
         this.clubId = clubId;
         authorId = actorId;
@@ -62,6 +66,7 @@ public class Activity {
         this.startsAt = startsAt;
         recruitmentClosesAt = closesAt;
         this.capacity = capacity;
+        this.allowExternalParticipants = allowExternalParticipants;
         createdAt = now;
         updatedAt = now;
     }

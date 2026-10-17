@@ -576,8 +576,8 @@ class ClubQueryIntegrationTests {
         return jdbcTemplate.queryForObject(
                 """
                 INSERT INTO activities (club_id, author_id, organizer_id, title, content, starts_at,
-                    recruitment_closes_at, capacity, created_at, updated_at)
-                VALUES (?, ?, ?, ?, 'Body', ?, ?, 10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    recruitment_closes_at, capacity, allow_external_participants, created_at, updated_at)
+                VALUES (?, ?, ?, ?, 'Body', ?, ?, 10, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 RETURNING id
                 """,
                 Long.class,

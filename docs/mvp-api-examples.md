@@ -75,15 +75,17 @@ Cookie: JSESSIONID=...
 X-CSRF-TOKEN: ...
 
 activity (application/json):
-{"title":"동아리 활동","content":"활동 소개","startsAt":"2030-05-02T09:00:00+09:00","recruitmentClosesAt":"2030-05-02T08:00:00+09:00","capacity":10}
+{"title":"동아리 활동","content":"활동 소개","startsAt":"2030-05-02T09:00:00+09:00","recruitmentClosesAt":"2030-05-02T08:00:00+09:00","capacity":10,"allowExternalParticipants":true}
 images (image/png): 첫 사진 파일
 images (image/jpeg): 두 번째 사진 파일
 ```
 
+allowExternalParticipants는 필수이며 false이면 주최자도 해당 동아리 ACTIVE 부원이어야 생성할 수 있습니다. false인 활동의 신규·재참가도 ACTIVE 부원만 가능하고 생성 후 설정은 변경할 수 없습니다.
+
 사진 없이 생성할 때는 images 파트를 생략합니다. 201, `Location: /api/v1/clubs/1/activities/20`, `{"id":20}`을 받습니다. `GET /api/v1/clubs/1/activities/20`의 사진 없는 상세 예시는 다음과 같습니다.
 
 ```json
-{"id":20,"clubId":1,"organizerId":2,"title":"동아리 활동","content":"활동 소개","startsAt":"2030-05-02T00:00:00Z","recruitmentClosesAt":"2030-05-01T23:00:00Z","capacity":10,"currentParticipantCount":1,"remainingCapacity":9,"recruiting":true,"dDay":"D-1","representativeImageUrl":null,"images":[]}
+{"id":20,"clubId":1,"organizerId":2,"title":"동아리 활동","content":"활동 소개","startsAt":"2030-05-02T00:00:00Z","recruitmentClosesAt":"2030-05-01T23:00:00Z","capacity":10,"allowExternalParticipants":true,"currentParticipantCount":1,"presentParticipantCount":0,"remainingCapacity":9,"recruiting":true,"dDay":"D-1","representativeImageUrl":null,"images":[]}
 ```
 
 사진이 있으면 representativeImageUrl과 images의 url을 img src에 사용합니다. images는 `[{"url":"https://...","sortOrder":0}]` 형태입니다. 목록은 같은 활동 DTO에서 content=null, images=[]이며 대표 이미지 URL을 제공합니다. 공개 응답에는 참가자 명단이 없습니다.

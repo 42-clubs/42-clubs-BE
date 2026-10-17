@@ -103,6 +103,7 @@ public class ActivityQueryService {
                 a.getStartsAt(),
                 a.getRecruitmentClosesAt(),
                 a.getCapacity(),
+                a.isAllowExternalParticipants(),
                 count,
                 counts.presentParticipantCount(),
                 Math.max(0, a.getCapacity() - count),

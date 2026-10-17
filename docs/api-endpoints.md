@@ -342,6 +342,7 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 | startsAt | string | 필수, 오프셋 포함 ISO 8601, 생성 시각 이후 |
 | recruitmentClosesAt | string | 필수, 오프셋 포함 ISO 8601, 생성 시각 이후·startsAt 이전 |
 | capacity | integer | 필수, 1~2,147,483,647, 주최자 포함 |
+| allowExternalParticipants | boolean | 필수, 생략·null은 400. true면 외부인 허용, false면 해당 동아리 ACTIVE 부원만 참가. 생성 후 변경 불가 |
 
 **ActivityResponse**
 
@@ -355,6 +356,7 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 | startsAt | string | UTC ISO 8601 개최 시각 |
 | recruitmentClosesAt | string | UTC ISO 8601 모집 마감 시각 |
 | capacity | integer | 주최자 포함 전체 정원 |
+| allowExternalParticipants | boolean | 생성 시 확정한 외부인 참가 허용 여부. 목록·상세 모두 제공 |
 | currentParticipantCount | integer | CONFIRMED 참가 수, 주최자 포함 |
 | presentParticipantCount | integer | CONFIRMED이면서 PRESENT인 출석 확인 인원. 주최자도 PRESENT일 때 포함 |
 | remainingCapacity | integer | 잔여 정원, 최소 0 |
@@ -367,6 +369,14 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 
 목록은 page·size를 받고 모집 중 우선 → startsAt 오름차순 → ID 오름차순으로 정렬한 뒤 페이지네이션합니다. 마감·종료 활동도 뒤에 표시합니다. 없는 동아리의 목록은 404이며 삭제된 활동은 목록에서 제외하고 상세에서 404입니다. 공개 응답에는 집계 인원만 포함하며 개인 참가 명단·개인별 출결을 포함하지 않습니다.
 `currentParticipantCount - presentParticipantCount`는 출석 미확인 인원이며 결석으로 해석하지 않습니다. 취소된 참가 관계는 두 인원 수에서 제외하고 전원 UNCHECKED이면 출석 확인 인원은 0입니다. 이 추가 필드는 동아리 활동 목록·상세에 적용하며 소모임 회차 계약은 변경하지 않습니다.
+
+**활동별 참가 자격**
+
+외부인은 해당 동아리 ACTIVE 부원 관계가 없는 로그인 사용자입니다. false인 활동의 생성자는 회장 관계 외에 ACTIVE 부원 관계도 있어야 하며, 그렇지 않으면 403 `ACCESS_DENIED`입니다. true인 활동은 기존처럼 회장 관계만으로 생성할 수 있습니다. ADMIN·다른 회장이라는 이유로 부원 조건을 우회하지 않습니다.
+
+신규 참가·취소 후 재참가 때 false인 활동은 현재 ACTIVE 부원 자격을 검사하고 없으면 403 `ACCESS_DENIED`입니다. 확정 후 부원 자격을 잃어도 기존 참가·출결은 유지하고 조회·취소·출결은 기존 계약을 따릅니다. 공개 회원 수의 회장 포함 집계와 참가 자격은 별개입니다. 공개 응답의 recruiting은 시간·정원 기준이며 요청자 개인의 참가 자격을 의미하지 않습니다.
+
+생성 후 허용 여부를 수정하는 API는 제공하지 않습니다. 기존 데이터·이전 요청 호환은 추가하지 않으며 FE는 새 필드를 명시해야 합니다. 소모임 회차는 이 설정의 대상이 아닙니다.
 
 ### 로컬 활동 사진 조회
 
