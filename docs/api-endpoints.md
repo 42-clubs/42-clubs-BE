@@ -400,6 +400,8 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 
 ### 소모임·회차 작성·조회
 
+소모임 전용 공지는 제공하지 않습니다. 관련 작성·목록·상세 API를 추가하지 않으며 FE도 소모임 공지를 조회하지 않기로 합의했습니다. [소모임 정책](domain-model.md#소모임과-개최-회차--확정)을 따릅니다.
+
 | 메서드 | 전체 경로 | 기능 | 권한 | 요청 본문 | 성공·응답 |
 | --- | --- | --- | --- | --- | --- |
 | POST | /api/v1/gatherings | 소모임·첫 회차·주최자 참가 생성 | 로그인 | GatheringRequest JSON | 201, GatheringCreated |
