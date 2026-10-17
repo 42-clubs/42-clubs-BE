@@ -52,4 +52,11 @@ public class Notice {
         createdAt = now;
         updatedAt = now;
     }
+
+    public void delete(Instant now) {
+        if (deletedAt == null) {
+            deletedAt = now;
+            updatedAt = now;
+        }
+    }
 }

@@ -40,7 +40,7 @@ erDiagram
 - 생성·수정·개최·활동 및 소모임 모집 마감은 TIMESTAMPTZ입니다. 기존 Club 입부 모집 날짜는 DATE로 유지합니다.
 - 역할·상태는 VARCHAR와 CHECK로 허용값을 제한합니다. 문자열 공백 등 입력 검증은 별도로 적용합니다.
 - FK에 연쇄 삭제를 설정하지 않습니다. updated_at은 애플리케이션에서 갱신합니다.
-- 활동·공지·소모임의 deleted_at은 NULL이면 미삭제이며 일반 조회에 IS NULL 조건을 적용합니다. 삭제 실행 API는 후속입니다.
+- 활동·공지·소모임의 deleted_at은 NULL이면 미삭제이며 일반 조회에 IS NULL 조건을 적용합니다. 동아리·운영 공지는 기존 컬럼으로 논리 삭제 API를 제공하며 활동·소모임 삭제 실행은 후속입니다.
 - D-Day·현재 인원·잔여 정원·모집 표시 상태는 파생 값이며 저장하지 않습니다.
 
 ## users
@@ -164,7 +164,7 @@ V3로 구현되었습니다. 동아리별 조회용 INDEX(club_id)도 적용했�
 | updated_at | TIMESTAMPTZ | O | 수정 시각 |
 | deleted_at | TIMESTAMPTZ | X | NULL이면 미삭제, 값이 있으면 논리 삭제 시각 |
 
-V8에서 visibility VARCHAR(20) NOT NULL DEFAULT 'MEMBERS_ONLY'와 허용값 CHECK를 추가했습니다. 기존 공지도 MEMBERS_ONLY로 전환합니다. 작성은 ADMIN 또는 해당 ACTIVE 동아리의 현재 회장 관계로 검사합니다. 조회는 visibility와 현재 부원·관리 권한으로 필터링합니다. deleted_at은 V5에 포함하며 삭제 실행은 후속입니다.
+V8에서 visibility VARCHAR(20) NOT NULL DEFAULT 'MEMBERS_ONLY'와 허용값 CHECK를 추가했습니다. 기존 공지도 MEMBERS_ONLY로 전환합니다. 작성은 ADMIN 또는 해당 ACTIVE 동아리의 현재 회장 관계로 검사합니다. 조회는 visibility와 현재 부원·관리 권한으로 필터링합니다. deleted_at은 V5에 포함하며 [공지 삭제 API](api-endpoints.md#공지-삭제--구현-계약)에서 최초 삭제 시각을 기록합니다. 기록 보존·복원 미제공이며 스키마 변경은 없습니다.
 
 ## announcements
 

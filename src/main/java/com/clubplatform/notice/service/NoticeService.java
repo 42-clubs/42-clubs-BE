@@ -34,6 +34,15 @@ public class NoticeService {
                 .getId();
     }
 
+    @Transactional
+    public void delete(long actorId, long clubId, long id) {
+        clubs.requireNoticeDeleter(actorId, clubId);
+        var notice =
+                notices.findForUpdate(clubId, id)
+                        .orElseThrow(() -> new ResourceNotFoundException("공지를 찾을 수 없습니다."));
+        notice.delete(clock.instant());
+    }
+
     public PageResponse<NoticeSummary> list(Long actorId, long clubId, int page, int size) {
         clubs.requireExisting(clubId);
         boolean includePrivate = clubs.canReadPrivateNotices(actorId, clubId);

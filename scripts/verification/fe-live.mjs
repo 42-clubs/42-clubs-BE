@@ -489,6 +489,34 @@ try {
     );
     done(group);
 
+    group = "notice deletion permissions and preserved logical deletion";
+    const clubNoticePath = `/clubs/1/notices/${publicNotice.id}`;
+    const privateNoticePath = `/clubs/1/notices/${privateNotice.id}`;
+    const announcementPath = `/announcements/${announcement.id}`;
+    as("member");
+    await denied(403, () => http.delete(clubNoticePath));
+    await denied(403, () => http.delete(announcementPath));
+    as("manager");
+    await denied(403, () => http.delete(announcementPath));
+    assert.equal((await http.delete(clubNoticePath)).status, 204);
+    assert.equal((await http.delete(clubNoticePath)).status, 204);
+    assert.equal((await http.delete(privateNoticePath)).status, 204);
+    as("admin");
+    await denied(404, () => http.delete(`/clubs/2/notices/${publicNotice.id}`));
+    assert.equal((await http.delete(announcementPath)).status, 204);
+    assert.equal((await http.delete(announcementPath)).status, 204);
+    await denied(404, () => http.delete("/announcements/9223372036854775807"));
+    as("outsider");
+    await denied(403, () => http.delete(clubNoticePath));
+    as("anonymous");
+    assert.equal((await noticeApi.clubNotices("1")).totalElements, 0);
+    assert.equal((await noticeApi.announcements()).totalElements, 0);
+    await denied(404, () => http.get(clubNoticePath));
+    await denied(404, () => http.get(privateNoticePath));
+    await denied(404, () => http.get(announcementPath));
+    as("member");
+    done(group);
+
     group = "CSRF and logout invalidate session";
     const missingCsrf = await fetchSession("/api/v1/auth/logout", {
         method: "POST",

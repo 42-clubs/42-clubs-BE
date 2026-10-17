@@ -189,3 +189,14 @@ GET /api/v1/me/gatherings?scope=ACTIVE&page=0&size=20
 ```
 
 가입한 동아리 영역은 isMember, 관리 동아리 영역은 isManager로 구분합니다. 참가 예정은 period=UPCOMING, 지난 활동은 period=PAST를 사용합니다. 같은 그룹 아래 items를 나열하고 type과 groupId로 그룹을 식별합니다. 일회성도 items 한 개로 표시합니다. 참가 확정과 실제 출석은 구분합니다. 상세 이동·필터·권한의 전체 계약은 [명세](api-endpoints.md#마이페이지내-권한--구현-계약)를 따릅니다. 캘린더 API는 이번 범위에서 제외합니다.
+
+## 공지 삭제
+
+[삭제 계약](api-endpoints.md#공지-삭제--구현-계약)에 따라 세션 쿠키와 현재 CSRF 토큰을 포함하며 본문은 보내지 않습니다.
+
+```http
+DELETE /api/v1/clubs/1/notices/10
+X-CSRF-TOKEN: <현재 세션의 토큰>
+```
+
+운영 공지는 `DELETE /api/v1/announcements/10`을 사용합니다. 성공은 본문 없는 204이며 권한 있는 반복 삭제도 204입니다. 삭제 후 일반 상세는 404이고 목록에서 제외됩니다. ACTIVE 동아리는 현재 회장 또는 ADMIN, ARCHIVED 동아리와 운영 공지는 ADMIN만 허용합니다. 복원 기능은 제공하지 않습니다.

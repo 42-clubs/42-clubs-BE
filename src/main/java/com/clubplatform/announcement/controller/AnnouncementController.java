@@ -38,4 +38,12 @@ public class AnnouncementController {
     public AnnouncementResponse detail(@PathVariable("announcementId") @Min(1) long id) {
         return service.detail(id);
     }
+
+    @DeleteMapping("/{announcementId}")
+    @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void delete(
+            @AuthenticationPrincipal AuthenticatedUser actor,
+            @PathVariable("announcementId") @Min(1) long id) {
+        service.delete(actor.userId(), id);
+    }
 }

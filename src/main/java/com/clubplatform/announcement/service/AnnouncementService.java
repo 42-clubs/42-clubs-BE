@@ -28,6 +28,16 @@ public class AnnouncementService {
                 .getId();
     }
 
+    @Transactional
+    public void delete(long actorId, long id) {
+        users.requireAdmin(actorId);
+        var announcement =
+                announcements
+                        .findForUpdate(id)
+                        .orElseThrow(() -> new ResourceNotFoundException("운영 공지를 찾을 수 없습니다."));
+        announcement.delete(clock.instant());
+    }
+
     public PageResponse<AnnouncementSummary> list(int page, int size) {
         return PageResponse.from(
                 announcements

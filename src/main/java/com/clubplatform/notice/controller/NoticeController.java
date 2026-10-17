@@ -43,4 +43,13 @@ public class NoticeController {
             @PathVariable("noticeId") @Min(1) long noticeId) {
         return service.detail(actor == null ? null : actor.userId(), clubId, noticeId);
     }
+
+    @DeleteMapping("/api/v1/clubs/{clubId}/notices/{noticeId}")
+    @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void delete(
+            @AuthenticationPrincipal AuthenticatedUser actor,
+            @PathVariable("clubId") @Min(1) long clubId,
+            @PathVariable("noticeId") @Min(1) long noticeId) {
+        service.delete(actor.userId(), clubId, noticeId);
+    }
 }
