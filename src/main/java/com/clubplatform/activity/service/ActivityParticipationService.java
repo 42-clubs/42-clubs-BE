@@ -26,6 +26,7 @@ public class ActivityParticipationService {
 
     @Transactional
     public void join(long actorId, long clubId, long id) {
+        clubs.requireActiveForChanges(clubId);
         var resource = activities.findForUpdate(clubId, id).orElseThrow(() -> missing());
         long organizerId = resource.getOrganizerId();
         var now = clock.instant();
@@ -42,6 +43,7 @@ public class ActivityParticipationService {
 
     @Transactional
     public void cancel(long actorId, long clubId, long id) {
+        clubs.requireActiveForChanges(clubId);
         var resource = activities.findForUpdate(clubId, id).orElseThrow(() -> missing());
         long organizerId = resource.getOrganizerId();
         var now = clock.instant();
@@ -94,6 +96,7 @@ public class ActivityParticipationService {
 
     @Transactional
     public void attendance(long actorId, long clubId, long id, long userId, String value) {
+        clubs.requireActiveForChanges(clubId);
         var resource = activities.findForUpdate(clubId, id).orElseThrow(() -> missing());
         long organizerId = resource.getOrganizerId();
         requireOrganizer(actorId, organizerId);

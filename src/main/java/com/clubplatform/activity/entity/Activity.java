@@ -71,6 +71,23 @@ public class Activity {
         updatedAt = now;
     }
 
+    public void updateText(String title, String content, Instant now) {
+        String nextTitle = title == null ? this.title : requireText(title, 200);
+        String nextContent = content == null ? this.content : requireText(content, 50000);
+        if (!java.util.Objects.equals(this.title, nextTitle)
+                || !java.util.Objects.equals(this.content, nextContent)) {
+            this.title = nextTitle;
+            this.content = nextContent;
+            updatedAt = now;
+        }
+    }
+
+    private static String requireText(String value, int maxLength) {
+        if (value.isBlank() || value.length() > maxLength)
+            throw new IllegalArgumentException("활동 제목·본문은 허용 길이 내의 비어 있지 않은 값이어야 합니다.");
+        return value;
+    }
+
     public void requireRecruiting(Instant now) {
         if (!now.isBefore(recruitmentClosesAt) || !now.isBefore(startsAt))
             throw new com.clubplatform.global.exception.ConflictException(

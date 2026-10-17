@@ -244,12 +244,13 @@ class UserAdministrationIntegrationTests {
         permissions.requireManager(member, otherClubId);
         assertThat(accounts.findIdentity(member)).isPresent();
         assertThat(managers.count()).isEqualTo(1);
-        // 운영 상태와 관계없이 회장 관계는 관리하되 작성 권한은 ACTIVE일 때만 허용한다.
+        // 아카이브에서는 ADMIN도 회장 지정·회수를 수행할 수 없다.
         jdbc.update("UPDATE clubs SET operation_status='ARCHIVED' WHERE id=?", clubId);
-        managerAdmin.change(owner, clubId, member, true);
-        assertThatThrownBy(() -> permissions.requireManager(member, clubId))
+        assertThatThrownBy(() -> managerAdmin.change(owner, clubId, member, true))
                 .isInstanceOf(AccessDeniedException.class);
-        managerAdmin.change(owner, clubId, member, false);
+        assertThatThrownBy(() -> managerAdmin.change(owner, clubId, member, false))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThat(managers.existsByUserIdAndClubId(member, clubId)).isFalse();
     }
 
     @Test

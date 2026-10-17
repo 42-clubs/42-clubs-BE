@@ -151,9 +151,8 @@ class NoticeDeletionIntegrationTests {
     }
 
     @ParameterizedTest
-    @CsvSource({"MANAGER,403", "ADMIN,204", "SECOND_ADMIN,204"})
-    void archiveDeletionIsAdminOnlyEvenWithCurrentManagerRelationship(String role, int expected)
-            throws Exception {
+    @CsvSource({"MANAGER,403", "ADMIN,403", "SECOND_ADMIN,403"})
+    void archiveDeletionIsDeniedForEveryRole(String role, int expected) throws Exception {
         jdbc.update("UPDATE clubs SET operation_status='ARCHIVED' WHERE id=?", club);
         mvc.perform(delete(path() + "/" + privateId).session(session(role)).with(csrf()))
                 .andExpect(status().is(expected));
@@ -242,7 +241,7 @@ class NoticeDeletionIntegrationTests {
         mvc.perform(delete(path() + "/" + publicId).session(manager).with(csrf()))
                 .andExpect(status().isForbidden());
         mvc.perform(delete(path() + "/" + publicId).session(session("ADMIN")).with(csrf()))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isForbidden());
     }
 
     @Test

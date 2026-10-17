@@ -23,6 +23,8 @@ public class ClubUpdateService {
         var club =
                 clubs.findForUpdate(clubId)
                         .orElseThrow(() -> new ResourceNotFoundException("동아리를 찾을 수 없습니다."));
+        if (club.getOperationStatus() != OperationStatus.ACTIVE)
+            throw new AccessDeniedException("아카이브 동아리의 기본정보는 수정할 수 없습니다.");
         if (!users.isAdmin(actorId)) {
             if (request.name() != null)
                 throw new AccessDeniedException("동아리 이름은 ADMIN만 수정할 수 있습니다.");

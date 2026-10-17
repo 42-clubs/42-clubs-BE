@@ -19,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class ActivityController {
     private final ActivityCreationService creation;
     private final ActivityQueryService query;
+    private final ActivityUpdateService updates;
 
     @PostMapping(
             value = "/api/v1/clubs/{clubId}/activities",
@@ -46,5 +47,15 @@ public class ActivityController {
             @PathVariable("clubId") @Min(1) long clubId,
             @PathVariable("activityId") @Min(1) long id) {
         return query.detail(clubId, id);
+    }
+
+    @PatchMapping("/api/v1/clubs/{clubId}/activities/{activityId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void update(
+            @AuthenticationPrincipal AuthenticatedUser actor,
+            @PathVariable("clubId") @Min(1) long clubId,
+            @PathVariable("activityId") @Min(1) long id,
+            @RequestBody @Valid ActivityUpdateRequest request) {
+        updates.update(actor.userId(), clubId, id, request);
     }
 }

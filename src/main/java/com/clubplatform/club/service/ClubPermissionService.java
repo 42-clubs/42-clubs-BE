@@ -45,16 +45,30 @@ public class ClubPermissionService {
             throw new AccessDeniedException("운영 중인 동아리의 회장 또는 운영 권한이 필요합니다.");
     }
 
-    /** 회장 변경과 같은 동아리 잠금을 사용하며, 아카이브 공지는 ADMIN만 삭제한다. */
+    /** 회장 변경과 같은 동아리 잠금을 사용하며 아카이브의 변경을 거절한다. */
     @Transactional
     public void requireNoticeDeleter(long actorId, long clubId) {
+        requireActiveManagerOrAdmin(actorId, clubId);
+    }
+
+    @Transactional
+    public void requireActivityEditor(long actorId, long clubId) {
+        requireActiveManagerOrAdmin(actorId, clubId);
+    }
+
+    private void requireActiveManagerOrAdmin(long actorId, long clubId) {
+        requireActiveForChanges(clubId);
+        if (!users.isAdmin(actorId) && !managers.existsByUserIdAndClubId(actorId, clubId))
+            throw new AccessDeniedException("운영 중인 해당 동아리의 회장 또는 ADMIN 권한이 필요합니다.");
+    }
+
+    @Transactional
+    public void requireActiveForChanges(long clubId) {
         var club =
                 clubs.findForUpdate(clubId)
                         .orElseThrow(() -> new ResourceNotFoundException("동아리를 찾을 수 없습니다."));
-        if (!users.isAdmin(actorId)
-                && !(club.getOperationStatus() == OperationStatus.ACTIVE
-                        && managers.existsByUserIdAndClubId(actorId, clubId)))
-            throw new AccessDeniedException("현재 동아리 회장 또는 운영 권한이 필요하며 아카이브는 운영진만 삭제합니다.");
+        if (club.getOperationStatus() != OperationStatus.ACTIVE)
+            throw new AccessDeniedException("아카이브 동아리의 정보와 기록은 변경할 수 없습니다.");
     }
 
     @Transactional(readOnly = true)

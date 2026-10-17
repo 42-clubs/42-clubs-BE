@@ -216,6 +216,7 @@ try {
 
     group = "club basic info field permissions and archive rules";
     const originalClub = await clubApi.detailPublic("1");
+    const originalArchive = await clubApi.detailPublic("106");
     as("manager");
     await http.patch("/clubs/1", { summary: "Chair summary", description: "Chair description" });
     await denied(403, () => http.patch("/clubs/1", { name: originalClub.name, summary: "Denied" }));
@@ -225,12 +226,12 @@ try {
     as("admin");
     await http.patch("/clubs/1", { name: "Updated live club" });
     await denied(400, () => http.patch("/clubs/1", { name: "Denied", operationStatus: "ARCHIVED" }));
-    await accessApi.setManager("106", users.manager.id, true);
+    await denied(403, () => accessApi.setManager("106", users.manager.id, true));
     as("manager");
     await denied(403, () => http.patch("/clubs/106", { description: "Denied" }));
     as("admin");
-    await http.patch("/clubs/106", { name: "Updated archive", summary: "Archive summary", description: "Archive description" });
-    await accessApi.setManager("106", users.manager.id, false);
+    await denied(403, () => http.patch("/clubs/106", { name: "Updated archive", summary: "Archive summary", description: "Archive description" }));
+    await denied(403, () => accessApi.setManager("106", users.manager.id, false));
     as("anonymous");
     const updatedClub = await clubApi.detailPublic("1");
     assert.equal(updatedClub.name, "Updated live club");
@@ -240,7 +241,7 @@ try {
     assert.equal(updatedClub.createdAt, originalClub.createdAt);
     assert.equal(updatedClub.memberCount, originalClub.memberCount);
     const updatedArchive = await clubApi.detailPublic("106");
-    assert.equal(updatedArchive.name, "Updated archive");
+    assert.deepEqual(updatedArchive, originalArchive);
     assert.equal(updatedArchive.operationStatus, "ARCHIVED");
     // Initialize Node's anonymous cookie jar before the FE interceptor fetches CSRF.
     await http.get("/auth/csrf");
@@ -262,14 +263,28 @@ try {
     assert.equal((await clubApi.activities("106"))[0].presentParticipantCount, 1);
     await denied(401, () => clubApi.participants("106", pastId));
     as("manager");
-    await clubApi.attendance("106", pastId, users.manager.id, "PRESENT");
+    await denied(403, () => clubApi.attendance("106", pastId, users.manager.id, "PRESENT"));
+    await denied(403, () => clubApi.attendance("106", pastId, users.member.id, "UNCHECKED"));
+    await denied(403, () => clubApi.joinActivity("106", pastId));
+    await denied(403, () => clubApi.cancelActivity("106", pastId));
+    await denied(403, () => http.patch(`/clubs/106/activities/${pastId}`, { title: "Denied" }));
+    const archiveNotice = (await noticeApi.clubNotices("106")).content[0];
+    as("admin");
+    await denied(403, () => http.delete(`/clubs/106/notices/${archiveNotice.id}`));
+    await denied(403, () => clubApi.attendance("106", pastId, users.member.id, "UNCHECKED"));
     as("anonymous");
-    assert.equal((await clubApi.detailPublic("106")).recentActivity.presentParticipantCount, 2);
+    assert.equal((await clubApi.detailPublic("106")).recentActivity.presentParticipantCount, 1);
+    assert.equal((await noticeApi.clubNotice("106", String(archiveNotice.id))).content, "Preserved body");
+    const activePast = String((await clubApi.detailPublic("105")).recentActivity.id);
     as("manager");
-    await clubApi.attendance("106", pastId, users.manager.id, "UNCHECKED");
-    await clubApi.attendance("106", pastId, users.member.id, "UNCHECKED");
+    await clubApi.attendance("105", activePast, users.manager.id, "PRESENT");
     as("anonymous");
-    assert.equal((await clubApi.detailPublic("106")).recentActivity.presentParticipantCount, 0);
+    assert.equal((await clubApi.detailPublic("105")).recentActivity.presentParticipantCount, 2);
+    as("manager");
+    await clubApi.attendance("105", activePast, users.manager.id, "UNCHECKED");
+    await clubApi.attendance("105", activePast, users.member.id, "UNCHECKED");
+    as("anonymous");
+    assert.equal((await clubApi.detailPublic("105")).recentActivity.presentParticipantCount, 0);
     done(group);
 
     group = "notices visibility and resource nesting";
@@ -347,6 +362,30 @@ try {
     );
     done(group);
 
+    group = "activity title and content updates use current chair or admin rights";
+    as("member");
+    await denied(403, () => http.patch(`/clubs/1/activities/${aid}`, { title: "Denied" }));
+    as("manager");
+    assert.equal((await http.patch(`/clubs/1/activities/${aid}`, { title: "Updated activity" })).status, 204);
+    as("admin");
+    assert.equal((await http.patch(`/clubs/1/activities/${aid}`, { content: "Updated body" })).status, 204);
+    await denied(403, () => clubApi.createActivity("1", input, []));
+    await denied(400, () => http.patch(`/clubs/1/activities/${aid}`, { title: "Denied", capacity: 10 }));
+    await accessApi.setManager("1", users.manager.id, false);
+    as("manager");
+    await denied(403, () => http.patch(`/clubs/1/activities/${aid}`, { title: "Denied" }));
+    as("admin");
+    await accessApi.setManager("1", users.manager.id, true);
+    as("anonymous");
+    const editedActivity = await clubApi.activity("1", aid);
+    assert.equal(editedActivity.title, "Updated activity");
+    assert.equal(editedActivity.content, "Updated body");
+    for (const field of ["authorId", "organizerId", "startsAt", "recruitmentClosesAt", "capacity", "allowExternalParticipants", "currentParticipantCount"])
+        assert.deepEqual(editedActivity[field], detail[field]);
+    assert.deepEqual(editedActivity.images, detail.images);
+    assert.equal((await clubApi.activities("1"))[0].title, "Updated activity");
+    done(group);
+
     group = "activity join cancel rejoin and organizer attendance";
     as("member");
     await clubApi.joinActivity("1", aid);
@@ -390,7 +429,7 @@ try {
     const restricted = await clubApi.createActivity("1", memberOnly, []);
     const rid = String(restricted.id);
     assert.equal((await clubApi.activity("1", rid)).allowExternalParticipants, false);
-    await denied(405, () => http.patch(`/clubs/1/activities/${rid}`, {
+    await denied(400, () => http.patch(`/clubs/1/activities/${rid}`, {
         allowExternalParticipants: true,
     }));
     as("outsider");

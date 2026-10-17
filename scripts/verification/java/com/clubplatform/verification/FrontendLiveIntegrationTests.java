@@ -90,26 +90,34 @@ class FrontendLiveIntegrationTests {
                     "Live description",
                     i == 106 ? "ARCHIVED" : "ACTIVE");
         }
-        // A started activity on an archived club exercises the public aggregate independently
-        // from the future activity created by FE functions below.
-        long pastActivity =
-                jdbc.queryForObject(
-                        """
+        // Seed both states before HTTP verification: archive data stays read-only, while
+        // an active club still permits organizer attendance corrections.
+        for (int pastClub : new int[] {105, 106}) {
+            jdbc.update(
+                    "INSERT INTO club_managers(user_id,club_id,created_at) VALUES(3,?,now())",
+                    pastClub);
+            long pastActivity =
+                    jdbc.queryForObject(
+                            """
                 INSERT INTO activities (club_id, author_id, organizer_id, title, content, starts_at,
                     recruitment_closes_at, capacity, allow_external_participants, created_at, updated_at)
-                VALUES (106, 3, 3, 'Recorded past activity', 'Past body', now() - interval '3 hours',
+                VALUES (?, 3, 3, 'Recorded past activity', 'Past body', now() - interval '3 hours',
                     now() - interval '4 hours', 4, true, now(), now()) RETURNING id
                 """,
-                        Long.class);
-        jdbc.update(
-                """
+                            Long.class,
+                            pastClub);
+            jdbc.update(
+                    """
                 INSERT INTO activity_participants (activity_id, user_id, status, attendance_status,
                     attendance_checked_by, attendance_checked_at, created_at, updated_at)
                 VALUES (?, 3, 'CONFIRMED', 'UNCHECKED', NULL, NULL, now(), now()),
                        (?, 4, 'CONFIRMED', 'PRESENT', 3, now(), now(), now())
                 """,
-                pastActivity,
-                pastActivity);
+                    pastActivity,
+                    pastActivity);
+        }
+        jdbc.update(
+                "INSERT INTO notices(club_id,author_id,title,content,visibility,created_at,updated_at) VALUES(106,3,'Archived notice','Preserved body','PUBLIC',now(),now())");
         var process =
                 new ProcessBuilder(
                                 "node",

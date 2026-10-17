@@ -88,7 +88,7 @@ erDiagram
 - recruitment_closed_early가 true이면 recruitment_planned도 true여야 합니다.
 - [모집 계획 취소](future-design.md#모집-계획-취소--확정) 시 recruitment_planned와 recruitment_closed_early는 false, recruitment_start_date·recruitment_end_date·application_method·application_url은 NULL로 저장합니다. 이 초기화는 후속 모집 쓰기 유스케이스에서 처리하며, 현재 DB CHECK는 이 NULL 조합 전체를 강제하지 않습니다.
 
-상태 변경과 아카이브·재모집 동작은 [도메인 정책](future-design.md#게시-및-아카이브-정책--확정)을 따릅니다.
+현재 아카이브의 모든 변경 금지는 [도메인](domain-model.md#아카이브-변경-금지--2026-10-17-추가-확정)을 따릅니다. 상태 전환 API와 아카이브·재모집 실행 동작은 [도메인 정책](future-design.md#게시-및-아카이브-정책--확정)을 따릅니다.
 활동도·표시용 모집 상태는 파생 값이며 저장 컬럼을 두지 않습니다. 활동도의 날짜 경계와 수정 반영은 [집계 정책](future-design.md#활동도-계산)을 따릅니다. 별도 아카이브 테이블이나 archived_at 컬럼은 없습니다.
 
 ## club_managers
@@ -147,7 +147,7 @@ V3로 구현되었습니다. 동아리별 조회용 INDEX(club_id)도 적용했�
 | updated_at | TIMESTAMPTZ | O | 수정 시각 |
 | deleted_at | TIMESTAMPTZ | X | NULL이면 미삭제, 값이 있으면 논리 삭제 시각 |
 
-작성자와 주최자는 MVP에서 동일한 회장 사용자입니다. 두 컬럼을 유지하되 서버에서 인증 사용자로 설정하고 CHECK(author_id = organizer_id)를 적용하는 설계입니다. 향후 주최자 분리를 도입하면 제약을 변경합니다. 생성 시 주최자의 CONFIRMED 참가 관계도 같은 트랜잭션에서 저장합니다. 외부인 참가 불허 활동은 주최자도 해당 동아리 ACTIVE 부원이어야 합니다. [V13](../src/main/resources/db/migration/V13__add_activity_external_participation.sql)은 빈 activities 테이블을 전제로 필수 컬럼만 추가하며 기존 행을 임의의 허용값으로 보정하지 않습니다. 이전 마이그레이션은 수정하지 않습니다.
+활동의 제목·본문 PATCH는 기존 title·content·updated_at만 변경하며 스키마 변경은 없습니다. 작성자와 주최자는 현재 동일한 회장 사용자입니다. 두 컬럼을 유지하되 서버에서 인증 사용자로 설정하고 CHECK(author_id = organizer_id)를 적용하는 설계입니다. 향후 주최자 분리를 도입하면 제약을 변경합니다. 생성 시 주최자의 CONFIRMED 참가 관계도 같은 트랜잭션에서 저장합니다. 외부인 참가 불허 활동은 주최자도 해당 동아리 ACTIVE 부원이어야 합니다. [V13](../src/main/resources/db/migration/V13__add_activity_external_participation.sql)은 빈 activities 테이블을 전제로 필수 컬럼만 추가하며 기존 행을 임의의 허용값으로 보정하지 않습니다. 이전 마이그레이션은 수정하지 않습니다.
 권한과 자동 참가 정책은 [활동 주최자](domain-model.md#동아리-활동-주최자--확정)를 따릅니다. capacity >= 1, recruitment_closes_at < starts_at을 검증합니다. activity_date를 중복 저장하지 않으며 개최일은 starts_at에서 계산합니다.
 
 ## notices

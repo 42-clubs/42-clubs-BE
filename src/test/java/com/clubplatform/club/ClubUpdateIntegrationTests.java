@@ -93,10 +93,15 @@ class ClubUpdateIntegrationTests {
 
     @ParameterizedTest
     @EnumSource(OperationStatus.class)
-    void adminCanUpdateAllFieldsWithoutManagerOrMembershipRegardlessOfStatus(OperationStatus status)
-            throws Exception {
+    void adminCanUpdateAllFieldsOnlyWhileActive(OperationStatus status) throws Exception {
         jdbc.update("UPDATE clubs SET operation_status=? WHERE id=?", status.name(), club);
         var before = row();
+        if (status == OperationStatus.ARCHIVED) {
+            change(admin, Map.of("name", "Denied", "summary", "Denied", "description", "Denied"))
+                    .andExpect(status().isForbidden());
+            assertThat(row()).isEqualTo(before);
+            return;
+        }
         change(
                         admin,
                         Map.of(

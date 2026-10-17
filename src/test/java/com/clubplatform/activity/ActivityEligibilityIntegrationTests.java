@@ -221,7 +221,8 @@ class ActivityEligibilityIntegrationTests {
     @ValueSource(booleans = {false, true})
     void policyCannotChangeImmediatelyAfterCreation(boolean external) throws Exception {
         long id = create(external);
-        for (var request : List.of(patch(path(id)), put(path(id)))) {
+        for (String method : List.of("PATCH", "PUT")) {
+            var request = "PATCH".equals(method) ? patch(path(id)) : put(path(id));
             mvc.perform(
                             request.session(session(chair))
                                     .with(csrf())
@@ -231,7 +232,7 @@ class ActivityEligibilityIntegrationTests {
                                                     Map.of(
                                                             "allowExternalParticipants",
                                                             !external))))
-                    .andExpect(status().isMethodNotAllowed());
+                    .andExpect(status().is("PATCH".equals(method) ? 400 : 405));
         }
         mvc.perform(get(path(id)))
                 .andExpect(jsonPath("$.allowExternalParticipants").value(external));
