@@ -111,6 +111,7 @@ try {
     const page = await clubApi.listPublic();
     assert.equal(page.content.length, 20);
     assert.equal(page.totalElements, 105);
+    assert.equal((await clubApi.detailPublic("1")).memberCount, 0);
     assert.equal((await clubApi.allPublic()).length, 105);
     assert.equal((await accessApi.clubs()).length, 106);
     assert.equal(
@@ -145,6 +146,7 @@ try {
     assert.deepEqual((await clubApi.detailPublic("1")).managers, [
         { intraLogin: "manager", displayName: "manager" },
     ]);
+    assert.equal((await clubApi.detailPublic("1")).memberCount, 1);
     assert.deepEqual((await clubApi.detailPublic("2")).managers, []);
     as("super");
     await accessApi.setManager("1", users.member.id, true);
@@ -153,6 +155,7 @@ try {
         { intraLogin: "manager", displayName: "manager" },
         { intraLogin: "member", displayName: "member" },
     ]);
+    assert.equal((await clubApi.detailPublic("1")).memberCount, 2);
     as("super");
     await accessApi.setManager("1", users.member.id, false);
     as("anonymous");
@@ -189,6 +192,16 @@ try {
     await denied(403, () => clubApi.members("1"));
     as("member");
     assert.equal((await clubApi.members("1")).length, 1);
+    assert.equal((await clubApi.detailPublic("1")).memberCount, 2);
+    as("super");
+    await accessApi.setManager("1", users.member.id, true);
+    as("anonymous");
+    const countedDetail = await clubApi.detailPublic("1");
+    assert.equal(countedDetail.memberCount, 2);
+    assert.equal(Object.hasOwn(countedDetail, "contact"), false);
+    assert.equal(Object.hasOwn(countedDetail, "publicContact"), false);
+    as("super");
+    await accessApi.setManager("1", users.member.id, false);
     done(group);
 
     group = "notices visibility and resource nesting";

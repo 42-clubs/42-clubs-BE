@@ -67,6 +67,7 @@ class ClubQueryIntegrationTests {
                 .andExpect(jsonPath("$.content[0].description").doesNotExist())
                 .andExpect(jsonPath("$.content[0].createdAt").doesNotExist())
                 .andExpect(jsonPath("$.content[0].managers").doesNotExist())
+                .andExpect(jsonPath("$.content[0].memberCount").doesNotExist())
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(20))
                 .andExpect(jsonPath("$.totalElements").value(2))
@@ -148,9 +149,80 @@ class ClubQueryIntegrationTests {
                 .andExpect(jsonPath("$.createdAt").isString())
                 .andExpect(jsonPath("$.updatedAt").isString())
                 .andExpect(jsonPath("$.managers").isEmpty())
-                .andExpect(jsonPath("$.memberCount").doesNotExist())
+                .andExpect(jsonPath("$.memberCount").value(0))
                 .andExpect(jsonPath("$.contact").doesNotExist())
                 .andExpect(jsonPath("$.activityLevel").doesNotExist());
+    }
+
+    /** 회원 수는 현재 회장·ACTIVE 부원의 합집합이며 관계 변경에도 중복 집계하지 않는다. */
+    @ParameterizedTest
+    @EnumSource(OperationStatus.class)
+    void memberCountIncludesCurrentManagersOnceAndExcludesOtherClubsAndFormerMembers(
+            OperationStatus operationStatus) throws Exception {
+        long club = insertClub("Counted club", operationStatus);
+        long otherClub = insertClub("Other counted club", OperationStatus.ACTIVE);
+        long member = insertUser(601, "member", "Member", "ADMIN");
+        long former = insertUser(602, "former", "Former", "USER");
+        long managerOnly = insertUser(603, "manageronly", "Manager only", "USER");
+        long memberManager = insertUser(604, "membermanager", "Member manager", "USER");
+        long formerManager = insertUser(605, "formermanager", "Former member manager", "USER");
+        long other = insertUser(606, "other", "Other", "USER");
+
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.memberCount").value(0));
+        insertMember(club, member, member, "ACTIVE");
+        insertMember(club, former, member, "LEFT");
+        insertMember(club, memberManager, member, "ACTIVE");
+        insertMember(club, formerManager, member, "LEFT");
+        insertMember(otherClub, other, member, "ACTIVE");
+        insertManager(club, managerOnly);
+        insertManager(club, memberManager);
+        insertManager(club, formerManager);
+        insertManager(otherClub, other);
+
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.memberCount").value(4))
+                .andExpect(jsonPath("$.contact").doesNotExist())
+                .andExpect(jsonPath("$.publicContact").doesNotExist());
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", otherClub))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.memberCount").value(1));
+
+        // Removing the manager relation preserves a member's contribution to the count.
+        jdbcTemplate.update(
+                "DELETE FROM club_managers WHERE club_id = ? AND user_id = ?", club, memberManager);
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.memberCount").value(4));
+        jdbcTemplate.update(
+                "DELETE FROM club_managers WHERE club_id = ? AND user_id = ?", club, managerOnly);
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.memberCount").value(3));
+
+        jdbcTemplate.update(
+                "UPDATE club_members SET status = 'ACTIVE', left_at = NULL WHERE club_id = ? AND user_id = ?",
+                club,
+                former);
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.memberCount").value(4));
+        jdbcTemplate.update(
+                "UPDATE club_members SET status = 'LEFT', left_at = CURRENT_TIMESTAMP WHERE club_id = ? AND user_id = ?",
+                club,
+                member);
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.memberCount").value(3));
+        assertThat(
+                        jdbcTemplate.queryForObject(
+                                "SELECT count(*) FROM club_members WHERE club_id = ? AND user_id = ?",
+                                Long.class,
+                                club,
+                                managerOnly))
+                .isZero();
     }
 
     /** 공개 회장 정보는 부원·전역 역할과 독립적이며 허용된 두 필드만 반환한다. */
@@ -402,6 +474,22 @@ class ClubQueryIntegrationTests {
                 "INSERT INTO club_managers (club_id, user_id, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
                 clubId,
                 userId);
+    }
+
+    private void insertMember(long clubId, long userId, long approvedBy, String status) {
+        jdbcTemplate.update(
+                """
+                INSERT INTO club_members
+                    (club_id, user_id, status, approved_by, joined_at, left_at, created_at, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP,
+                    CASE WHEN ? = 'LEFT' THEN CURRENT_TIMESTAMP ELSE NULL END,
+                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """,
+                clubId,
+                userId,
+                status,
+                approvedBy,
+                status);
     }
 
     /** 조회 테스트에 필요한 모집 일정과 지원 안내를 설정한다. */

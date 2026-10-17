@@ -14,6 +14,7 @@ public record ClubDetailResponse(
         String summary,
         String description,
         OperationStatus operationStatus,
+        long memberCount,
         List<ManagerResponse> managers,
         RecruitmentResponse recruitment,
         Instant createdAt,
@@ -21,13 +22,14 @@ public record ClubDetailResponse(
 
     /** 동아리 엔티티와 조회 기준일을 공개 상세 응답으로 변환한다. */
     public static ClubDetailResponse from(
-            Club club, LocalDate today, List<ManagerResponse> managers) {
+            Club club, LocalDate today, List<ManagerResponse> managers, long memberCount) {
         return new ClubDetailResponse(
                 club.getId(),
                 club.getName(),
                 club.getSummary(),
                 club.getDescription(),
                 club.getOperationStatus(),
+                memberCount,
                 managers,
                 new RecruitmentResponse(
                         club.isRecruitmentPlanned(),

@@ -8,6 +8,7 @@ import com.clubplatform.club.entity.Club;
 import com.clubplatform.club.entity.ClubManager;
 import com.clubplatform.club.entity.OperationStatus;
 import com.clubplatform.club.repository.ClubManagerRepository;
+import com.clubplatform.club.repository.ClubMemberRepository;
 import com.clubplatform.club.repository.ClubRepository;
 import com.clubplatform.global.exception.ResourceNotFoundException;
 import com.clubplatform.user.service.UserAdministrationService;
@@ -29,6 +30,7 @@ public class ClubQueryService {
 
     private final ClubRepository clubRepository;
     private final ClubManagerRepository managers;
+    private final ClubMemberRepository members;
     private final UserAdministrationService users;
     private final Clock clock;
 
@@ -67,6 +69,10 @@ public class ClubQueryService {
                                     })
                             .toList();
         }
-        return ClubDetailResponse.from(club, LocalDate.now(clock), publicManagers);
+        return ClubDetailResponse.from(
+                club,
+                LocalDate.now(clock),
+                publicManagers,
+                members.countMembersIncludingManagers(clubId));
     }
 }
