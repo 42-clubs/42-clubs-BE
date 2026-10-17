@@ -140,6 +140,26 @@ try {
     as("super");
     await accessApi.setManager("1", users.manager.id, true);
     assert.equal((await accessApi.managers("1"))[0].id, users.manager.id);
+    // Public detail exposes only the approved display fields, without granting admin access.
+    as("anonymous");
+    assert.deepEqual((await clubApi.detailPublic("1")).managers, [
+        { intraLogin: "manager", displayName: "manager" },
+    ]);
+    assert.deepEqual((await clubApi.detailPublic("2")).managers, []);
+    as("super");
+    await accessApi.setManager("1", users.member.id, true);
+    as("anonymous");
+    assert.deepEqual((await clubApi.detailPublic("1")).managers, [
+        { intraLogin: "manager", displayName: "manager" },
+        { intraLogin: "member", displayName: "member" },
+    ]);
+    as("super");
+    await accessApi.setManager("1", users.member.id, false);
+    as("anonymous");
+    assert.deepEqual((await clubApi.detailPublic("1")).managers, [
+        { intraLogin: "manager", displayName: "manager" },
+    ]);
+    as("super");
     await accessApi.setOperator(users.outsider.id, true);
     as("outsider");
     assert.equal((await authApi.me()).role, "ADMIN");

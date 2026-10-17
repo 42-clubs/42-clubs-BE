@@ -66,6 +66,7 @@ class ClubQueryIntegrationTests {
                 .andExpect(jsonPath("$.content[0].recruitmentStatus").value("NOT_RECRUITING"))
                 .andExpect(jsonPath("$.content[0].description").doesNotExist())
                 .andExpect(jsonPath("$.content[0].createdAt").doesNotExist())
+                .andExpect(jsonPath("$.content[0].managers").doesNotExist())
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(20))
                 .andExpect(jsonPath("$.totalElements").value(2))
@@ -146,8 +147,109 @@ class ClubQueryIntegrationTests {
                         jsonPath("$.recruitment.applicationUrl").value("https://example.com/apply"))
                 .andExpect(jsonPath("$.createdAt").isString())
                 .andExpect(jsonPath("$.updatedAt").isString())
-                .andExpect(jsonPath("$.managers").doesNotExist())
+                .andExpect(jsonPath("$.managers").isEmpty())
+                .andExpect(jsonPath("$.memberCount").doesNotExist())
+                .andExpect(jsonPath("$.contact").doesNotExist())
                 .andExpect(jsonPath("$.activityLevel").doesNotExist());
+    }
+
+    /** 공개 회장 정보는 부원·전역 역할과 독립적이며 허용된 두 필드만 반환한다. */
+    @ParameterizedTest
+    @EnumSource(OperationStatus.class)
+    void publicManagersSupportNoneOneAndMultipleWithoutLeakingUserFields(
+            OperationStatus operationStatus) throws Exception {
+        long club = insertClub("Public managers", operationStatus);
+        long otherClub = insertClub("Other club", OperationStatus.ACTIVE);
+        long first = insertUser(501, "first", "First manager", "USER");
+        long second = insertUser(502, "second", "Second manager", "ADMIN");
+        long unrelated = insertUser(503, "unrelated", "Other manager", "SUPER_ADMIN");
+        insertManager(otherClub, unrelated);
+
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.managers").isArray())
+                .andExpect(jsonPath("$.managers").isEmpty());
+
+        insertManager(club, second);
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.managers.length()").value(1))
+                .andExpect(
+                        jsonPath("$.managers[0]")
+                                .value(
+                                        org.hamcrest.Matchers.equalTo(
+                                                java.util.Map.of(
+                                                        "intraLogin",
+                                                        "second",
+                                                        "displayName",
+                                                        "Second manager"))));
+
+        insertManager(club, first);
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.managers.length()").value(2))
+                .andExpect(
+                        jsonPath("$.managers[0]")
+                                .value(
+                                        org.hamcrest.Matchers.equalTo(
+                                                java.util.Map.of(
+                                                        "intraLogin",
+                                                        "first",
+                                                        "displayName",
+                                                        "First manager"))))
+                .andExpect(
+                        jsonPath("$.managers[1]")
+                                .value(
+                                        org.hamcrest.Matchers.equalTo(
+                                                java.util.Map.of(
+                                                        "intraLogin",
+                                                        "second",
+                                                        "displayName",
+                                                        "Second manager"))));
+        assertThat(
+                        jdbcTemplate.queryForObject(
+                                "SELECT count(*) FROM club_members WHERE club_id = ?",
+                                Long.class,
+                                club))
+                .isZero();
+    }
+
+    /** 회장 관계·표시 정보의 갱신과 회수 결과를 다음 조회에 반영한다. */
+    @Test
+    void publicManagersReflectProfileUpdatesAndRevocationsOnFollowingRequests() throws Exception {
+        long club = insertClub("Current managers", OperationStatus.ACTIVE);
+        long user = insertUser(504, "original", "Original manager", "USER");
+        insertManager(club, user);
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.managers[0].intraLogin").value("original"));
+
+        jdbcTemplate.update(
+                "UPDATE users SET intra_login = 'updated', display_name = 'Updated manager' WHERE id = ?",
+                user);
+        // Each production request gets a fresh persistence context, unlike this transactional test.
+        entityManager.clear();
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$.managers[0]")
+                                .value(
+                                        org.hamcrest.Matchers.equalTo(
+                                                java.util.Map.of(
+                                                        "intraLogin",
+                                                        "updated",
+                                                        "displayName",
+                                                        "Updated manager"))));
+
+        jdbcTemplate.update(
+                "DELETE FROM club_managers WHERE club_id = ? AND user_id = ?", club, user);
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.managers").isEmpty());
+        assertThat(
+                        jdbcTemplate.queryForObject(
+                                "SELECT count(*) FROM users WHERE id = ?", Long.class, user))
+                .isEqualTo(1L);
     }
 
     /** 아카이브된 동아리의 상세 정보도 공개 조회할 수 있는지 검증한다. */
@@ -280,6 +382,26 @@ class ClubQueryIntegrationTests {
                 Long.class,
                 name,
                 operationStatus.name());
+    }
+
+    private long insertUser(long intraId, String login, String name, String role) {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO users (intra_id, intra_login, display_name, role, created_at, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
+                """,
+                Long.class,
+                intraId,
+                login,
+                name,
+                role);
+    }
+
+    private void insertManager(long clubId, long userId) {
+        jdbcTemplate.update(
+                "INSERT INTO club_managers (club_id, user_id, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+                clubId,
+                userId);
     }
 
     /** 조회 테스트에 필요한 모집 일정과 지원 안내를 설정한다. */

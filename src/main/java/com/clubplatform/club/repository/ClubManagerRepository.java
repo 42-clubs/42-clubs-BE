@@ -12,5 +12,7 @@ public interface ClubManagerRepository extends JpaRepository<ClubManager, Long> 
 
     Page<ClubManager> findByClubId(long clubId, Pageable pageable);
 
+    java.util.List<ClubManager> findByClubIdOrderByUserIdAsc(long clubId);
+
     void deleteByUserIdAndClubId(long userId, long clubId);
 }

@@ -1,14 +1,19 @@
 package com.clubplatform.club.service;
 
 import com.clubplatform.club.dto.ClubDetailResponse;
+import com.clubplatform.club.dto.ClubDetailResponse.ManagerResponse;
 import com.clubplatform.club.dto.ClubListResponse;
 import com.clubplatform.club.dto.ClubSummaryResponse;
 import com.clubplatform.club.entity.Club;
+import com.clubplatform.club.entity.ClubManager;
 import com.clubplatform.club.entity.OperationStatus;
+import com.clubplatform.club.repository.ClubManagerRepository;
 import com.clubplatform.club.repository.ClubRepository;
 import com.clubplatform.global.exception.ResourceNotFoundException;
+import com.clubplatform.user.service.UserAdministrationService;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,6 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class ClubQueryService {
 
     private final ClubRepository clubRepository;
+    private final ClubManagerRepository managers;
+    private final UserAdministrationService users;
     private final Clock clock;
 
     /** 운영 상태로 필터링한 동아리를 ID순으로 페이지 조회하고 모집 상태를 계산한다. */
@@ -43,6 +50,23 @@ public class ClubQueryService {
                 clubRepository
                         .findById(clubId)
                         .orElseThrow(() -> new ResourceNotFoundException("동아리를 찾을 수 없습니다."));
-        return ClubDetailResponse.from(club, LocalDate.now(clock));
+        var relations = managers.findByClubIdOrderByUserIdAsc(clubId);
+        List<ManagerResponse> publicManagers;
+        if (relations.isEmpty()) {
+            publicManagers = List.of();
+        } else {
+            var summaries =
+                    users.findSummaries(relations.stream().map(ClubManager::getUserId).toList());
+            publicManagers =
+                    relations.stream()
+                            .map(
+                                    relation -> {
+                                        var user = summaries.get(relation.getUserId());
+                                        return new ManagerResponse(
+                                                user.intraLogin(), user.displayName());
+                                    })
+                            .toList();
+        }
+        return ClubDetailResponse.from(club, LocalDate.now(clock), publicManagers);
     }
 }

@@ -137,6 +137,9 @@ operationStatus 생략 시 ACTIVE만 조회합니다. 빈 매개변수는 page·
   "summary": "함께 프로젝트를 만드는 동아리",
   "description": "동아리 상세 소개",
   "operationStatus": "ACTIVE",
+  "managers": [
+    {"intraLogin": "chair", "displayName": "동아리 회장"}
+  ],
   "recruitment": {
     "planned": false,
     "status": "NOT_RECRUITING",
@@ -154,7 +157,9 @@ operationStatus 생략 시 ACTIVE만 조회합니다. 빈 매개변수는 page·
 날짜는 `YYYY-MM-DD`, 생성·수정 시각은 UTC ISO 8601 형식입니다.
 모집 상태의 응답 값은 `NOT_RECRUITING`(모집 안 함), `SCHEDULED`(모집 예정), `OPEN`(모집 중), `CLOSED`(마감)입니다.
 계산 정책과 날짜 기준은 [도메인 모집 정책](domain-model.md#모집-정보와-상태--확정)을 따릅니다.
-관리자·사용자 정보는 공개 응답에 포함하지 않습니다.
+상세의 `managers`는 현재 회장 관계의 사용자 정보를 공개용 형태로 반환합니다. 항목은 `intraLogin`·`displayName` 두 문자열만 포함하며 내부 사용자 ID 오름차순으로 정렬합니다. 회장이 없으면 `[]`이며 복수 회장을 모두 반환합니다. 사용자 내부 ID·42 고유 ID·이메일·연락처·전역 역할·권한 부여 시각은 노출하지 않습니다. 회장 지정·회수와 표시 정보 변경은 이후 조회에 반영됩니다.
+ACTIVE·ARCHIVED 동아리 모두 같은 회장 정보 계약을 적용합니다. 회원 가입 여부는 회장 표시 조건이 아니며, 회장 공개 정보로 부원 명단·최고 관리자 전용 회장 API의 접근 권한이 확대되지는 않습니다. 목록에는 `managers`를 추가하지 않습니다.
+회원 수·공개 연락처·최근 참여는 아직 상세 응답에 포함하지 않습니다. 미정 사항은 [2단계 검토 기록](fe-integration-stage2-review.md)에서 관리합니다.
 
 ### 오류 응답
 
