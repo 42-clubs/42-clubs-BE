@@ -16,6 +16,7 @@ public record ClubDetailResponse(
         OperationStatus operationStatus,
         long memberCount,
         List<ManagerResponse> managers,
+        RecentActivityResponse recentActivity,
         RecruitmentResponse recruitment,
         Instant createdAt,
         Instant updatedAt) {
@@ -31,6 +32,7 @@ public record ClubDetailResponse(
                 club.getOperationStatus(),
                 memberCount,
                 managers,
+                null,
                 new RecruitmentResponse(
                         club.isRecruitmentPlanned(),
                         club.recruitmentStatusOn(today),
@@ -42,6 +44,29 @@ public record ClubDetailResponse(
                 club.getCreatedAt(),
                 club.getUpdatedAt());
     }
+
+    /** 조합 조회 계층에서 활동 요약을 추가한다. */
+    public ClubDetailResponse withRecentActivity(RecentActivityResponse recent) {
+        return new ClubDetailResponse(
+                id,
+                name,
+                summary,
+                description,
+                operationStatus,
+                memberCount,
+                managers,
+                recent,
+                recruitment,
+                createdAt,
+                updatedAt);
+    }
+
+    public record RecentActivityResponse(
+            long id,
+            String title,
+            Instant startsAt,
+            long currentParticipantCount,
+            long presentParticipantCount) {}
 
     /** 현재 회장의 로그인명과 표시 이름만 담는 공개 응답. */
     public record ManagerResponse(String intraLogin, String displayName) {}

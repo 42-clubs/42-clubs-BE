@@ -22,6 +22,7 @@ flowchart TB
             Auth[auth]
             User[user]
             Club[club]
+            ClubDetail[clubdetail: 동아리 상세 조합]
             Activity[activity]
             Notice[notice]
             Announcement[announcement]
@@ -48,6 +49,7 @@ flowchart TB
 | auth | 42 OAuth·세션 인증 설정, 경산 자격 검사·로그인 유스케이스 |
 | user | 교육생 계정·사용자 정보, 운영 사용자 검색·ADMIN 역할 관리 |
 | club | 동아리 기본 정보·운영 상태·기존 모집 정보, 관리 권한·부원 등록·명단 |
+| clubdetail | club·activity의 공개 조회 결과를 조합한 동아리 상세 응답 |
 | activity | 동아리 활동·사진·선착순 참가·취소·기본 출결 |
 | gathering | 소모임·첫 회차 동시 생성, 다음 회차 추가·조회, 회차별 참가·취소·출결 |
 | notice | 동아리별 공지, 공개 범위·권한별 조회 |
@@ -134,3 +136,9 @@ club이 활동 등록 서비스를 다시 호출하는 구조는 피합니다.
 `club`은 본인의 부원·회장 관계 및 화면 권한을 담당합니다. `activity`와 `gathering`은 본인 CONFIRMED 관계를 조건으로 각각 자기 테이블을 조회하고 DTO를 제공합니다. `mypage`는 이 서비스들과 club의 이름 조회 서비스를 호출해 그룹·정렬·페이지 응답을 구성하며 다른 기능의 Repository를 직접 참조하지 않습니다. 기능 간 역방향 의존성은 없습니다.
 
 초기 규모에서는 본인의 유효 참가 내역만 각 기능에서 한 번에 조회해 메모리에서 그룹화한 뒤 그룹 단위 페이지네이션합니다. 전체 공개 목록을 순회하거나 항목별 추가 조회를 하지 않습니다. 페이지 크기는 그룹 수를 제한하며 그룹 내부 항목 수는 제한하지 않습니다. 개인 이력이 커지면 그룹 ID 우선 조회와 DB 페이지네이션으로 개선합니다. 스키마·환경변수 변경은 없습니다.
+
+### 동아리 상세와 최근 활동 조회 구성
+
+기존 `GET /api/v1/clubs/{clubId}`는 `clubdetail`의 Controller·조회 서비스가 담당합니다. `clubdetail`은 `club.ClubQueryService`의 기본 정보·회장·회원 수와 `activity.ActivitySummaryQueryService`의 최근 활동 요약을 조합하며 다른 기능의 Repository를 직접 참조하지 않습니다. club과 activity는 clubdetail에 의존하지 않습니다. activity의 기존 club 권한 서비스 의존은 유지하되 club이 activity를 역호출하지 않도록 조합 책임을 분리했습니다.
+
+최근 활동 선택과 출석 집계는 activity 소유 쿼리에서 처리합니다. 기존 `(club_id, starts_at, id)` 인덱스를 활용해 시작 시각·ID 내림차순 1개를 조회하고, 목록의 신청·출석 인원은 페이지에 포함된 활동 ID를 한 번에 집계하여 항목별 추가 조회를 피합니다. 스키마·환경변수·외부 경로 변경은 없습니다.

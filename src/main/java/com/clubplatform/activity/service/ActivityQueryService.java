@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class ActivityQueryService {
     private final ActivityRepository activities;
-    private final ActivityParticipantRepository participants;
+    private final ActivitySummaryQueryService summaries;
     private final ActivityImageRepository images;
     private final ClubPermissionService clubs;
     private final PhotoStorage storage;
@@ -33,13 +33,16 @@ public class ActivityQueryService {
         var rows = activities.findPublic(clubId, now, PageRequest.of(page, size));
         var ids = rows.stream().map(Activity::getId).toList();
         if (ids.isEmpty())
-            return PageResponse.from(rows.map(a -> response(a, 0, List.of(), false, now)));
-        var counts =
-                participants.confirmedCounts(ids).stream()
-                        .collect(
-                                Collectors.toMap(
-                                        ActivityParticipantRepository.ConfirmedCount::getParentId,
-                                        ActivityParticipantRepository.ConfirmedCount::getTotal));
+            return PageResponse.from(
+                    rows.map(
+                            a ->
+                                    response(
+                                            a,
+                                            ActivityAttendanceCounts.EMPTY,
+                                            List.of(),
+                                            false,
+                                            now)));
+        var counts = summaries.counts(ids);
         var photos =
                 images.findByActivityIdInOrderByActivityIdAscSortOrderAsc(ids).stream()
                         .collect(Collectors.groupingBy(ActivityImage::getActivityId));
@@ -48,7 +51,8 @@ public class ActivityQueryService {
                         a ->
                                 response(
                                         a,
-                                        counts.getOrDefault(a.getId(), 0L),
+                                        counts.getOrDefault(
+                                                a.getId(), ActivityAttendanceCounts.EMPTY),
                                         photos.getOrDefault(a.getId(), List.of()),
                                         false,
                                         now)));
@@ -61,14 +65,19 @@ public class ActivityQueryService {
                         .orElseThrow(() -> new ResourceNotFoundException("활동을 찾을 수 없습니다."));
         return response(
                 a,
-                participants.countByActivityIdAndStatus(id, "CONFIRMED"),
+                summaries.counts(List.of(id)).getOrDefault(id, ActivityAttendanceCounts.EMPTY),
                 images.findByActivityIdOrderBySortOrder(id),
                 true,
                 clock.instant());
     }
 
     private ActivityResponse response(
-            Activity a, long count, List<ActivityImage> photos, boolean detail, Instant now) {
+            Activity a,
+            ActivityAttendanceCounts counts,
+            List<ActivityImage> photos,
+            boolean detail,
+            Instant now) {
+        long count = counts.currentParticipantCount();
         String representative =
                 photos.isEmpty() ? null : storage.url(photos.get(0).getStorageKey());
         var imageResponses =
@@ -95,6 +104,7 @@ public class ActivityQueryService {
                 a.getRecruitmentClosesAt(),
                 a.getCapacity(),
                 count,
+                counts.presentParticipantCount(),
                 Math.max(0, a.getCapacity() - count),
                 now.isBefore(a.getRecruitmentClosesAt())
                         && now.isBefore(a.getStartsAt())

@@ -42,6 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
 class ClubQueryIntegrationTests {
 
     private static final LocalDate TODAY = LocalDate.of(2026, 10, 12);
+    private static final Instant NOW = Instant.parse("2026-10-11T15:00:00Z");
 
     @Autowired private MockMvc mockMvc;
 
@@ -50,6 +51,108 @@ class ClubQueryIntegrationTests {
     @Autowired private ClubRepository clubRepository;
 
     @Autowired private EntityManager entityManager;
+
+    /** 최근 시작한 활동만 선택하고 주최자를 포함한 확정·출석 인원을 공개한다. */
+    @ParameterizedTest
+    @EnumSource(OperationStatus.class)
+    void recentActivityUsesStartBoundaryAndPublicCountsIncludingOrganizer(
+            OperationStatus operationStatus) throws Exception {
+        long club = insertClub("Recent activity club", operationStatus);
+        long otherClub = insertClub("Other club", OperationStatus.ACTIVE);
+        long organizer = insertUser(701, "organizer", "Organizer", "USER");
+        long present = insertUser(702, "present", "Present", "USER");
+        long unchecked = insertUser(703, "unchecked", "Unchecked", "USER");
+        long cancelled = insertUser(704, "cancelled", "Cancelled", "USER");
+        long recent = insertActivity(club, organizer, "At boundary", NOW);
+        long future = insertActivity(club, organizer, "Future", NOW.plusSeconds(1));
+        insertActivity(club, organizer, "Older but higher ID", NOW.minusSeconds(1));
+        long deleted = insertActivity(club, organizer, "Deleted", NOW);
+        jdbcTemplate.update(
+                "UPDATE activities SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", deleted);
+        insertActivity(otherClub, organizer, "Other club activity", NOW);
+        insertParticipant(recent, organizer, organizer, "CONFIRMED", "PRESENT");
+        insertParticipant(recent, present, organizer, "CONFIRMED", "PRESENT");
+        insertParticipant(recent, unchecked, organizer, "CONFIRMED", "UNCHECKED");
+        // Historical inconsistent rows must not add CANCELLED participants to either count.
+        insertParticipant(recent, cancelled, organizer, "CANCELLED", "PRESENT");
+        insertParticipant(future, organizer, organizer, "CONFIRMED", "PRESENT");
+
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recentActivity.length()").value(5))
+                .andExpect(jsonPath("$.recentActivity.id").value(recent))
+                .andExpect(jsonPath("$.recentActivity.title").value("At boundary"))
+                .andExpect(jsonPath("$.recentActivity.startsAt").value(NOW.toString()))
+                .andExpect(jsonPath("$.recentActivity.currentParticipantCount").value(3))
+                .andExpect(jsonPath("$.recentActivity.presentParticipantCount").value(2));
+        mockMvc.perform(get("/api/v1/clubs/{clubId}/activities/{activityId}", club, recent))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentParticipantCount").value(3))
+                .andExpect(jsonPath("$.presentParticipantCount").value(2))
+                .andExpect(jsonPath("$.participants").doesNotExist());
+        mockMvc.perform(get("/api/v1/clubs/{clubId}/activities", club))
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$.content[?(@.id == %s)].presentParticipantCount", recent)
+                                .value(org.hamcrest.Matchers.contains(2)))
+                .andExpect(
+                        jsonPath("$.content[?(@.id == %s)].presentParticipantCount", future)
+                                .value(org.hamcrest.Matchers.contains(1)));
+        mockMvc.perform(
+                        get(
+                                "/api/v1/clubs/{clubId}/activities/{activityId}/participants",
+                                club,
+                                recent))
+                .andExpect(status().isUnauthorized());
+
+        jdbcTemplate.update(
+                """
+                UPDATE activity_participants SET attendance_status = 'UNCHECKED',
+                    attendance_checked_by = NULL, attendance_checked_at = NULL
+                WHERE activity_id = ? AND user_id = ?
+                """,
+                recent,
+                organizer);
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recentActivity.presentParticipantCount").value(1));
+
+        long tied = insertActivity(club, organizer, "Same time higher ID", NOW);
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recentActivity.id").value(tied))
+                .andExpect(jsonPath("$.recentActivity.currentParticipantCount").value(0))
+                .andExpect(jsonPath("$.recentActivity.presentParticipantCount").value(0));
+    }
+
+    /** 활동 없음과 미확인 출석을 구분하고 출결 정정일로 최근 활동을 선택하지 않는다. */
+    @Test
+    void recentActivityDistinguishesNoStartedActivityFromUncheckedAttendance() throws Exception {
+        long club = insertClub("Empty recent activity", OperationStatus.ACTIVE);
+        long organizer = insertUser(705, "organizer", "Organizer", "USER");
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recentActivity").value(org.hamcrest.Matchers.nullValue()));
+        insertActivity(club, organizer, "Future only", NOW.plusSeconds(1));
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recentActivity").value(org.hamcrest.Matchers.nullValue()));
+
+        long latest = insertActivity(club, organizer, "Not checked yet", NOW);
+        insertParticipant(latest, organizer, organizer, "CONFIRMED", "UNCHECKED");
+        long old = insertActivity(club, organizer, "Old but checked today", NOW.minusSeconds(3600));
+        insertParticipant(old, organizer, organizer, "CONFIRMED", "PRESENT");
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recentActivity.id").value(latest))
+                .andExpect(jsonPath("$.recentActivity.currentParticipantCount").value(1))
+                .andExpect(jsonPath("$.recentActivity.presentParticipantCount").value(0));
+        jdbcTemplate.update(
+                "UPDATE activities SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", latest);
+        mockMvc.perform(get("/api/v1/clubs/{clubId}", club))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recentActivity.id").value(old));
+    }
 
     /** 기본 목록의 아카이브 제외·ID 정렬·페이지 응답을 검증한다. */
     @Test
@@ -467,6 +570,39 @@ class ClubQueryIntegrationTests {
                 login,
                 name,
                 role);
+    }
+
+    private long insertActivity(long clubId, long organizer, String title, Instant startsAt) {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO activities (club_id, author_id, organizer_id, title, content, starts_at,
+                    recruitment_closes_at, capacity, created_at, updated_at)
+                VALUES (?, ?, ?, ?, 'Body', ?, ?, 10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                RETURNING id
+                """,
+                Long.class,
+                clubId,
+                organizer,
+                organizer,
+                title,
+                java.sql.Timestamp.from(startsAt),
+                java.sql.Timestamp.from(startsAt.minusSeconds(60)));
+    }
+
+    private void insertParticipant(
+            long activity, long user, long organizer, String status, String attendance) {
+        jdbcTemplate.update(
+                """
+                INSERT INTO activity_participants (activity_id, user_id, status, attendance_status,
+                    attendance_checked_by, attendance_checked_at, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """,
+                activity,
+                user,
+                status,
+                attendance,
+                "PRESENT".equals(attendance) ? organizer : null,
+                "PRESENT".equals(attendance) ? java.sql.Timestamp.from(NOW) : null);
     }
 
     private void insertManager(long clubId, long userId) {

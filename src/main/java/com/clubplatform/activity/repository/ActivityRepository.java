@@ -11,6 +11,10 @@ import org.springframework.data.repository.query.Param;
 public interface ActivityRepository extends JpaRepository<Activity, Long> {
     Optional<Activity> findByIdAndClubIdAndDeletedAtIsNull(long id, long clubId);
 
+    Optional<Activity>
+            findFirstByClubIdAndDeletedAtIsNullAndStartsAtLessThanEqualOrderByStartsAtDescIdDesc(
+                    long clubId, Instant now);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from Activity a where a.id=:id and a.clubId=:clubId and a.deletedAt is null")
     Optional<Activity> findForUpdate(@Param("clubId") long clubId, @Param("id") long id);

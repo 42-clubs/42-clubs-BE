@@ -21,14 +21,21 @@ public interface ActivityParticipantRepository extends JpaRepository<ActivityPar
     java.util.List<com.clubplatform.activity.dto.MyActivity> findMine(
             @org.springframework.data.repository.query.Param("userId") long userId);
 
-    interface ConfirmedCount {
+    interface ParticipationCount {
         Long getParentId();
 
-        long getTotal();
+        long getConfirmedCount();
+
+        long getPresentCount();
     }
 
     @org.springframework.data.jpa.repository.Query(
-            "select p.activityId as parentId,count(p) as total from ActivityParticipant p where p.activityId in :ids and p.status='CONFIRMED' group by p.activityId")
-    java.util.List<ConfirmedCount> confirmedCounts(
+            """
+            select p.activityId as parentId, count(p) as confirmedCount,
+                sum(case when p.attendanceStatus='PRESENT' then 1 else 0 end) as presentCount
+            from ActivityParticipant p where p.activityId in :ids and p.status='CONFIRMED'
+            group by p.activityId
+            """)
+    java.util.List<ParticipationCount> participationCounts(
             @org.springframework.data.repository.query.Param("ids") java.util.List<Long> ids);
 }

@@ -46,7 +46,7 @@ public class ClubQueryService {
         return ClubListResponse.from(clubs.map(club -> ClubSummaryResponse.from(club, today)));
     }
 
-    /** 동아리 상세와 모집 안내를 반환하며 대상이 없으면 예외를 발생시킨다. */
+    /** 상세 조합에 필요한 동아리 기본 정보·회장·회원 수를 반환한다. */
     public ClubDetailResponse findClub(long clubId) {
         Club club =
                 clubRepository

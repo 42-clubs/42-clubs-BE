@@ -13,6 +13,7 @@ public record ActivityResponse(
         Instant recruitmentClosesAt,
         int capacity,
         long currentParticipantCount,
+        long presentParticipantCount,
         long remainingCapacity,
         boolean recruiting,
         String dDay,

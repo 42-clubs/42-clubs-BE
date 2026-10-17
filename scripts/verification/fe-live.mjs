@@ -112,6 +112,7 @@ try {
     assert.equal(page.content.length, 20);
     assert.equal(page.totalElements, 105);
     assert.equal((await clubApi.detailPublic("1")).memberCount, 0);
+    assert.equal((await clubApi.detailPublic("1")).recentActivity, null);
     assert.equal((await clubApi.allPublic()).length, 105);
     assert.equal((await accessApi.clubs()).length, 106);
     assert.equal(
@@ -204,6 +205,31 @@ try {
     await accessApi.setManager("1", users.member.id, false);
     done(group);
 
+    group = "recent activity public counts and organizer attendance";
+    as("anonymous");
+    const recent = (await clubApi.detailPublic("106")).recentActivity;
+    assert.equal(recent.title, "Recorded past activity");
+    assert(new Date(recent.startsAt).getTime() <= Date.now());
+    assert.equal(recent.currentParticipantCount, 2);
+    assert.equal(recent.presentParticipantCount, 1);
+    assert.deepEqual(Object.keys(recent).sort(), [
+        "currentParticipantCount", "id", "presentParticipantCount", "startsAt", "title",
+    ]);
+    const pastId = String(recent.id);
+    assert.equal((await clubApi.activity("106", pastId)).presentParticipantCount, 1);
+    assert.equal((await clubApi.activities("106"))[0].presentParticipantCount, 1);
+    await denied(401, () => clubApi.participants("106", pastId));
+    as("manager");
+    await clubApi.attendance("106", pastId, users.manager.id, "PRESENT");
+    as("anonymous");
+    assert.equal((await clubApi.detailPublic("106")).recentActivity.presentParticipantCount, 2);
+    as("manager");
+    await clubApi.attendance("106", pastId, users.manager.id, "UNCHECKED");
+    await clubApi.attendance("106", pastId, users.member.id, "UNCHECKED");
+    as("anonymous");
+    assert.equal((await clubApi.detailPublic("106")).recentActivity.presentParticipantCount, 0);
+    done(group);
+
     group = "notices visibility and resource nesting";
     as("admin");
     const announcement = await noticeApi.create({
@@ -262,6 +288,7 @@ try {
     const aid = String(activity.id);
     const detail = await clubApi.activity("1", aid);
     assert.equal(detail.currentParticipantCount, 1);
+    assert.equal(detail.presentParticipantCount, 0);
     assert.equal(detail.images.length, 1);
     const photo = await fetch(detail.images[0].url);
     assert.equal(photo.status, 200);
@@ -288,6 +315,8 @@ try {
     as("manager");
     assert.equal((await clubApi.participants("1", aid)).length, 2);
     await clubApi.attendance("1", aid, users.member.id, "PRESENT");
+    assert.equal((await clubApi.activity("1", aid)).presentParticipantCount, 1);
+    assert.equal((await clubApi.detailPublic("1")).recentActivity, null);
     as("member");
     assert.equal(
         (await clubApi.myActivity("1", aid)).attendanceStatus,

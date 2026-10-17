@@ -141,6 +141,13 @@ operationStatus 생략 시 ACTIVE만 조회합니다. 빈 매개변수는 page·
   "managers": [
     {"intraLogin": "chair", "displayName": "동아리 회장"}
   ],
+  "recentActivity": {
+    "id": 10,
+    "title": "최근 동아리 활동",
+    "startsAt": "2026-10-10T09:00:00Z",
+    "currentParticipantCount": 8,
+    "presentParticipantCount": 5
+  },
   "recruitment": {
     "planned": false,
     "status": "NOT_RECRUITING",
@@ -162,7 +169,9 @@ operationStatus 생략 시 ACTIVE만 조회합니다. 빈 매개변수는 page·
 ACTIVE·ARCHIVED 동아리 모두 같은 회장 정보 계약을 적용합니다. 회원 가입 여부는 회장 표시 조건이 아니며, 회장 공개 정보로 부원 명단·최고 관리자 전용 회장 API의 접근 권한이 확대되지는 않습니다. 목록에는 `managers`를 추가하지 않습니다.
 상세의 `memberCount`는 해당 동아리의 ACTIVE 부원과 현재 회장을 합친 고유 사용자 수인 0 이상의 정수(Java long)입니다. 두 관계를 모두 가진 사용자는 한 번만 세며, 부원 관계가 없거나 LEFT인 현재 회장도 포함합니다. LEFT 부원이면서 회장이 아닌 사용자는 제외합니다. ACTIVE·ARCHIVED 모두 같은 기준이며 대상자가 없으면 0입니다. 목록에는 이 필드를 추가하지 않습니다.
 `memberCount`는 회원 명단의 항목 수와 다를 수 있습니다. 회장 관계를 집계에 포함해도 부원 등록·회원 명단 조회 권한·사용자의 가입 동아리 수를 변경하지 않습니다. 관계별 기준은 [도메인 정책](domain-model.md#동아리-상세의-회원-수연락처--2026-10-17-확정)을 따릅니다.
-공개 연락처는 미제공으로 확정했으며 필드를 추가하지 않습니다. 최근 참여는 아직 미정입니다. 결정·진행 기록은 [2단계 검토 기록](fe-integration-stage2-review.md)에서 관리합니다.
+상세의 `recentActivity`는 해당 동아리의 미삭제 활동 중 `startsAt <= 서버 현재 시각`인 가장 최근 1개이며, 동률이면 ID가 큰 활동을 선택합니다. ACTIVE·ARCHIVED 모두 같은 기준입니다. 미래 활동·소모임은 제외하고 대상이 없으면 `null`입니다. 활동 ID·제목·개최 시각·신청 확정 인원(`currentParticipantCount`)·출석 확인 인원(`presentParticipantCount`)만 포함하며 개인 명단은 반환하지 않습니다. 개최 시각은 종료 완료를 뜻하지 않습니다.
+신청 확정 인원은 CONFIRMED 전체, 출석 확인 인원은 그중 PRESENT인 사용자 수입니다. 주최자도 같은 조건으로 포함합니다. 두 수의 차이는 출석 미확인 인원이며 결석이 아닙니다. 출결 정정은 이후 조회에 반영합니다. 해당 활동에 전원이 미확인이면 `presentParticipantCount: 0`이고, 최근 활동 자체가 없는 `recentActivity: null`과 구분합니다.
+공개 연락처는 미제공으로 확정했으며 필드를 추가하지 않습니다. 결정·진행 기록은 [2단계 검토 기록](fe-integration-stage2-review.md)에서 관리합니다.
 
 ### 오류 응답
 
@@ -346,6 +355,7 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 | recruitmentClosesAt | string | UTC ISO 8601 모집 마감 시각 |
 | capacity | integer | 주최자 포함 전체 정원 |
 | currentParticipantCount | integer | CONFIRMED 참가 수, 주최자 포함 |
+| presentParticipantCount | integer | CONFIRMED이면서 PRESENT인 출석 확인 인원. 주최자도 PRESENT일 때 포함 |
 | remainingCapacity | integer | 잔여 정원, 최소 0 |
 | recruiting | boolean | 마감·개최 전이며 잔여 정원이 있으면 true |
 | dDay | string | 한국 날짜 기준 D-N / D-Day / 종료 |
@@ -354,7 +364,8 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 | images[].url | string | 프론트에서 조회할 이미지 URL |
 | images[].sortOrder | integer | 0부터 시작하는 첨부 순서 |
 
-목록은 page·size를 받고 모집 중 우선 → startsAt 오름차순 → ID 오름차순으로 정렬한 뒤 페이지네이션합니다. 마감·종료 활동도 뒤에 표시합니다. 없는 동아리의 목록은 404이며 삭제된 활동은 목록에서 제외하고 상세에서 404입니다. 공개 응답에는 참가 명단·출결을 포함하지 않습니다.
+목록은 page·size를 받고 모집 중 우선 → startsAt 오름차순 → ID 오름차순으로 정렬한 뒤 페이지네이션합니다. 마감·종료 활동도 뒤에 표시합니다. 없는 동아리의 목록은 404이며 삭제된 활동은 목록에서 제외하고 상세에서 404입니다. 공개 응답에는 집계 인원만 포함하며 개인 참가 명단·개인별 출결을 포함하지 않습니다.
+`currentParticipantCount - presentParticipantCount`는 출석 미확인 인원이며 결석으로 해석하지 않습니다. 취소된 참가 관계는 두 인원 수에서 제외하고 전원 UNCHECKED이면 출석 확인 인원은 0입니다. 이 추가 필드는 동아리 활동 목록·상세에 적용하며 소모임 회차 계약은 변경하지 않습니다.
 
 ### 로컬 활동 사진 조회
 

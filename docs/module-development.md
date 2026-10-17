@@ -22,10 +22,13 @@ GET /api/v1/clubs
   → 200 JSON
 
 GET /api/v1/clubs/{clubId}
-  → ClubController.findClub: ID 형식·범위 검증
-  → ClubQueryService.findClub [읽기 전용 트랜잭션]
-      → ClubRepository.findById
-      → ClubDetailResponse: Entity의 모집 상태 계산 결과와 공개 필드 매핑
+  → ClubDetailController.findClub: ID 형식·범위 검증
+  → ClubDetailQueryService.findClub [읽기 전용 트랜잭션]
+      → ClubQueryService.findClub: 기본 정보·회장·회원 수
+          → ClubRepository.findById, 회장·부원 집계, 사용자 서비스
+      → ActivitySummaryQueryService.recentActivity: 최근 시작한 활동·신청/출석 집계
+          → ActivityRepository, ActivityParticipantRepository
+      → ClubDetailResponse: 기본 정보와 최근 활동의 공개 필드 조합
   → 200 JSON
 ```
 
@@ -126,7 +129,7 @@ Controller나 JSON 직렬화 과정이 지연 로딩으로 추가 조회를 수�
 목록 API는 페이지네이션과 필요한 필드를 먼저 정한 뒤 쿼리를 설계합니다.
 DTO 변환 중 연관관계 접근으로 N+1 쿼리가 발생하는지 확인하고, 필요한 경우 조회 전용 projection이나 적절한 fetch 전략을 사용합니다.
 컬렉션 fetch join과 페이지네이션을 함께 사용할 때는 실제 쿼리와 결과 크기를 확인합니다.
-공개 응답에 참가자 명단·출결 등 제한된 정보가 섞이지 않도록 응답 DTO를 구분합니다.
+공개 응답에 개인 참가자 명단·개인별 출결 등 제한된 정보가 섞이지 않도록 응답 DTO를 구분합니다. 동아리 상세의 최근 활동과 활동 목록·상세에는 신청 확정·출석 확인 인원 집계만 공개합니다.
 
 ## 검증 체크리스트
 
