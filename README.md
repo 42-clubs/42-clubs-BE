@@ -76,6 +76,7 @@ Spotless는 Google Java Format AOSP 스타일을 적용하며 빌드 중에는 �
 | 프론트 연동용 생성·조회·참가·출결 예시 | [MVP API 연결 예시](docs/mvp-api-examples.md) |
 | 기능별 엔드포인트 구현 순서·DB 작업·완료 조건 | [MVP 구현 계획](docs/mvp-implementation-plan.md) |
 | FE 요청 대조·연동 검증 순서·미정 사항과 착수 조건 | [FE 연동 구현 계획](docs/fe-integration-plan.md) |
+| 사용자 의사결정·실행 상태·미정 항목의 처리 순서 | [의사결정 기록](docs/decision-register.md) |
 | 초기 동아리·회장·ADMIN DB 입력 | [초기 데이터 절차](docs/initial-data-setup.md) |
 | 실제 DB·관계도·제약조건 | [ERD](docs/erd.md) |
 | 패키지·계층·의존성·DB 운영 규칙 | [아키텍처](docs/architecture.md) |
