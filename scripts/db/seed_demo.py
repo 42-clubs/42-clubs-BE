@@ -33,6 +33,46 @@ GATHERINGS = [
 ]
 
 
+SEOUL = "'Asia/Seoul'"
+# 소모임마다 어울리는 요일(ISO 1=월)과 시각. 한국 시각 기준이다
+GATHERING_SLOTS = {
+    'coffee': (5, 15),   # 금요일 낮
+    'reading': (3, 19),  # 수요일 저녁
+    'code': (2, 20),     # 화요일 늦은 저녁
+    'walk': (4, 19),     # 평일 저녁
+    'hike': (6, 9),      # 토요일 아침
+    'art': (1, 19),
+    'write': (7, 16),
+    'travel': (7, 14),
+}
+
+
+def seoul_day_start():
+    """한국 시각 기준 오늘 0시."""
+    return "date_trunc('day', now() AT TIME ZONE %s)" % SEOUL
+
+
+def seoul_weekday(dow, hour, past=False):
+    """한국 시각으로 다음(또는 지난) 해당 요일 hour시를 timestamptz로 돌려준다.
+    오늘은 고르지 않으므로 1~7일 뒤(앞)가 된다."""
+    isodow = "EXTRACT(ISODOW FROM now() AT TIME ZONE %s)::int" % SEOUL
+    if past:
+        days = "(((%s - %d + 6) %% 7) + 1)" % (isodow, dow)
+        sign = '-'
+    else:
+        days = "(((%d - %s + 6) %% 7) + 1)" % (dow, isodow)
+        sign = '+'
+    return "((%s %s %s * interval '1 day' + interval '%d hours') AT TIME ZONE %s)" % (
+        seoul_day_start(), sign, days, hour, SEOUL)
+
+
+def seoul_offset(days, hour):
+    """한국 시각으로 오늘에서 days만큼 떨어진 날의 hour시."""
+    sign = '+' if days >= 0 else '-'
+    return "((%s %s interval '%d days' + interval '%d hours') AT TIME ZONE %s)" % (
+        seoul_day_start(), sign, abs(days), hour, SEOUL)
+
+
 def literal(value):
     return "'" + str(value).replace("'", "''") + "'"
 
@@ -120,7 +160,7 @@ END $$;""",
             title = literal('[DEMO] ' + name + (' 지난 활동' if period == 'past' else ' 다음 활동'))
             aid = '(SELECT id FROM activities WHERE club_id = %s AND title = %s)' % (cid, title)
             past = period == 'past'
-            starts = "now() - interval '7 days'" if past else "now() + interval '%d days'" % (i + 2)
+            starts = seoul_offset(-7, 19) if past else seoul_offset(i + 2, 19)
             # Archived club retains history only.
             if slug == 'game' and not past:
                 continue
@@ -142,7 +182,7 @@ END $$;""",
                              'ON CONFLICT (activity_id, user_id) DO NOTHING;' % (
                                  aid, user(member), literal('PRESENT' if past else 'UNCHECKED'),
                                  chair if past else 'NULL', starts if past else 'NULL'))
-    for i, (_, title, location, capacity) in enumerate(GATHERINGS):
+    for i, (slug, title, location, capacity) in enumerate(GATHERINGS):
         title_sql = literal('[DEMO] ' + title)
         gid = gathering(title)
         host = user(i + 2)
@@ -156,7 +196,8 @@ END $$;""",
         for past in (True, False):
             stitle = literal('[DEMO] ' + title + (' 첫 만남' if past else ' 다음 만남'))
             sid = '(SELECT id FROM gathering_sessions WHERE gathering_id = %s AND title = %s)' % (gid, stitle)
-            starts = "now() - interval '7 days'" if past else "now() + interval '%d days'" % (i + 2)
+            dow, hour = GATHERING_SLOTS[slug]
+            starts = seoul_weekday(dow, hour, past=past)
             cancelled = not past and i == 7
             lines.append(insert_once('gathering_sessions',
                 'gathering_id, title, starts_at, ends_at, recruitment_opens_at, recruitment_closes_at, '

@@ -85,6 +85,38 @@ class DemoSeedTests(unittest.TestCase):
             "(SELECT 1 FROM club_members m WHERE m.club_id=a.club_id AND m.user_id=p.user_id "
             "AND m.status='ACTIVE'))").stdout.strip(), '0')
 
+    def test_sessions_use_natural_seoul_weekday_times(self):
+        self.sql(seed.build_sql())
+        rows = self.sql(
+            "SELECT g.title || '|' || s.title || '|' || "
+            "to_char(s.starts_at AT TIME ZONE 'Asia/Seoul', 'ID HH24:MI') "
+            "FROM gathering_sessions s JOIN gatherings g ON g.id = s.gathering_id "
+            "ORDER BY g.title, s.title").stdout.strip().split('\n')
+        slots = {title: '%d %02d:00' % slot for title, slot in (
+            ('금요일 커피 한 잔', seed.GATHERING_SLOTS['coffee']),
+            ('주말 가벼운 등산', seed.GATHERING_SLOTS['hike']),
+            ('저녁 산책', seed.GATHERING_SLOTS['walk']),
+            ('같이 푸는 알고리즘', seed.GATHERING_SLOTS['code']),
+        )}
+        for row in rows:
+            name, _, when = row.split('|')
+            plain = name.removeprefix('[DEMO] ')
+            if plain in slots:
+                # 과거 회차와 다음 회차 모두 같은 요일·시각에 선다
+                self.assertEqual(when, slots[plain], row)
+        # 자정 가까운 시각이 남아 있으면 안 된다
+        self.assertEqual(self.sql(
+            "SELECT count(*) FROM gathering_sessions WHERE "
+            "EXTRACT(HOUR FROM starts_at AT TIME ZONE 'Asia/Seoul') NOT BETWEEN 9 AND 21").stdout.strip(), '0')
+        self.assertEqual(self.sql(
+            "SELECT count(*) FROM activities WHERE "
+            "EXTRACT(HOUR FROM starts_at AT TIME ZONE 'Asia/Seoul') <> 19").stdout.strip(), '0')
+        # 모집 시작 <= 시작 2시간 전, 모집 마감 < 시작 < 종료
+        self.assertEqual(self.sql(
+            "SELECT count(*) FROM gathering_sessions WHERE NOT ("
+            "recruitment_opens_at <= starts_at - interval '2 hours' "
+            "AND recruitment_closes_at < starts_at AND starts_at < ends_at)").stdout.strip(), '0')
+
     def test_reserved_identity_collision_rolls_back(self):
         self.sql("INSERT INTO users (intra_id,intra_login,display_name,role,created_at,updated_at) "
                  "VALUES (-420001,'someone_else','Keep','USER',now(),now());")
