@@ -1,0 +1,30 @@
+// Opt-in cross-repository verification; never included in the production artifact.
+allprojects {
+    afterEvaluate {
+        if (plugins.hasPlugin('java')) {
+            sourceSets {
+                feLive {
+                    java.srcDir('scripts/verification/java')
+                    compileClasspath = sourceSets.test.output + sourceSets.test.runtimeClasspath
+                    runtimeClasspath = output + compileClasspath
+                }
+            }
+            spotless {
+                java {
+                    target('src/**/*.java', 'scripts/verification/java/**/*.java')
+                }
+            }
+            tasks.register('feLiveTest', Test) {
+                group = 'verification'
+                description = 'Run FE API functions against isolated real HTTP and PostgreSQL.'
+                testClassesDirs = sourceSets.feLive.output.classesDirs
+                classpath = sourceSets.feLive.runtimeClasspath
+                systemProperty('fe.repo.path', providers.gradleProperty('feRepoPath').getOrElse(''))
+                useJUnitPlatform()
+                // FE sources and Node dependencies live outside this Gradle project.
+                outputs.upToDateWhen { false }
+                testLogging.showStandardStreams = true
+            }
+        }
+    }
+}
