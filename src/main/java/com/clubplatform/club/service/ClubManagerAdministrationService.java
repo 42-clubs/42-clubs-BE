@@ -21,7 +21,7 @@ public class ClubManagerAdministrationService {
     private final UserAdministrationService users;
 
     public UserDirectoryPage list(long actorId, long clubId, int page, int size) {
-        users.requireSuperAdmin(actorId);
+        users.requireAdmin(actorId);
         if (!clubs.existsById(clubId)) {
             throw new ResourceNotFoundException("동아리를 찾을 수 없습니다.");
         }
@@ -34,7 +34,7 @@ public class ClubManagerAdministrationService {
 
     @Transactional
     public void change(long actorId, long clubId, long userId, boolean granted) {
-        users.requireSuperAdmin(actorId);
+        users.requireAdmin(actorId);
         // 같은 동아리의 부여·회수를 직렬화해 확인과 저장 사이의 중복 생성을 막는다.
         clubs.findForUpdate(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("동아리를 찾을 수 없습니다."));

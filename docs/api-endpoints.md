@@ -29,7 +29,7 @@
 | 순서 | 구현 묶음 | API 수 | 상태 |
 | --- | --- | --- | --- |
 | 0 | 역할·권한 기반·초기 DB 입력 절차 | 0 | 완료 |
-| 1 | 사용자 검색·최고 관리자 권한 관리 | 6 | 완료 |
+| 1 | 사용자 검색·ADMIN 권한 관리 | 6 | 완료 |
 | 2 | 부원 등록·현황·명단 | 3 | 완료 |
 | 3 | 동아리·운영 공지 작성·조회 | 6 | 완료 |
 | 4 | 동아리 활동 작성·조회 | 3 | 완료 |
@@ -38,7 +38,7 @@
 | 7 | 회차 참가·취소·기본 출결 | 5 | 완료 |
 | 8 | 마이페이지·동아리별 내 권한 | 4 | 완료 |
 
-초기 동아리·회장·최고 관리자는 전달받은 정보로 [초기 DB 입력 절차](initial-data-setup.md)에 따라 입력합니다. 이후 권한 관리는 아래 최고 관리자 API를 사용합니다. 동아리 생성 API는 MVP에 추가하지 않습니다. 0단계에서 SUPER_ADMIN 역할과 ClubManager 관계·작성 권한 검사를 구현했습니다. ClubMember는 V4와 2단계 API로 구현했습니다.
+초기 동아리·회장·ADMIN은 전달받은 정보로 [초기 DB 입력 절차](initial-data-setup.md)에 따라 입력합니다. 이후 권한 관리는 아래 ADMIN 권한 관리 API를 사용합니다. 동아리 생성 API는 MVP에 추가하지 않습니다. 0단계에서 역할과 ClubManager 관계·작성 권한 검사를 구현하고 V11에서 서비스 역할을 USER/ADMIN으로 통합했습니다. ClubMember는 V4와 2단계 API로 구현했습니다.
 
 동아리 활동은 해당 회장이 작성하며 작성자가 주최자입니다. 주최자 선택 UI·후보 검색 API·organizerId 요청 필드는 필요하지 않습니다.
 
@@ -50,7 +50,7 @@
 - JSON 본문은 `Content-Type: application/json`으로 전송합니다. 활동 생성만 `multipart/form-data`이며 activity 파트는 application/json입니다. GET과 본문 없는 변경 요청에는 JSON 본문을 붙이지 않습니다.
 - 본인 식별자는 인증 정보로 결정합니다. 신청 요청에서 임의 userId를 받아 다른 사람으로 신청할 수 없습니다.
 - 변경 요청은 세션 쿠키와 CSRF 헤더가 필요합니다. CSRF 토큰 누락·불일치는 403입니다.
-- 운영진은 ADMIN·SUPER_ADMIN, 동아리 회장은 해당 ClubManager 관계, 활동·소모임 주최자는 해당 organizer_id로 검사합니다. 동아리 공지 작성·비공개 관리 조회는 운영진 권한으로도 허용합니다.
+- 운영진은 ADMIN, 동아리 회장은 해당 ClubManager 관계, 활동·소모임 주최자는 해당 organizer_id로 검사합니다. 동아리 공지 작성·비공개 관리 조회는 운영진 권한으로도 허용합니다.
 - 중첩 경로는 자식의 소속 관계도 검사합니다. 경로의 clubId/gatheringId만 검증하고 다른 부모의 자식을 수정할 수 없습니다.
 - 공개 동아리 공지 조회도 로그인 쿠키를 포함해야 본인의 비공개 열람 권한이 반영됩니다. 익명 요청으로 보내면 PUBLIC만 조회됩니다.
 - 참가자 명단과 출결은 공개 상세 응답에 포함하지 않습니다. 주최자는 관리 명단, 참가자는 본인 상태를 조회합니다.
@@ -75,7 +75,7 @@
 - 세션 쿠키는 HttpOnly이며 로컬은 SameSite=Lax, Secure=false입니다. 배포 설정은 환경 변수로 변경합니다. 로그인 상태는 서버 재시작 시 사라집니다.
 - 인증 없는 보호 API는 401 `UNAUTHENTICATED`, ADMIN 권한 부족과 CSRF 오류는 403 `ACCESS_DENIED`입니다. OAuth state·코드·42 프로필 오류 및 경산 도메인 불일치는 401 `OAUTH_LOGIN_FAILED`이며 외부 오류 세부 내용은 응답하지 않습니다. 서버 WARN 로그에는 안전하게 분류한 실패 사유와 확인 안내를 기록하며, [로그 확인 안내](environment-variables.md#로그인-실패-서버-로그)를 따릅니다.
 - `AUTH_ENABLED=false`이면 OAuth 시작·콜백 기능을 활성화하지 않습니다. 공개 동아리 조회·CSRF API는 유지하며 보호 API는 인증이 필요합니다.
-- `/me`의 role은 USER / ADMIN / SUPER_ADMIN입니다. 기존 세션에서도 매 요청 DB 역할을 반영합니다. SUPER_ADMIN은 ADMIN 운영 권한을 포함하고 동아리별 회장·주최자·부원 조건은 별도로 검사합니다. 권한 관리는 아래 구현 계약을 따릅니다.
+- `/me`의 role은 USER / ADMIN입니다. 기존 세션에서도 매 요청 DB 역할을 반영합니다. ADMIN은 운영·권한 관리 기능을 수행하고 동아리별 회장·주최자·부원 조건은 별도로 검사합니다. 권한 관리는 아래 구현 계약을 따릅니다.
 - `/me`에 이메일·42 API 토큰·42 전체 프로필은 포함하지 않습니다. 사용자 계정은 42 ID 기준으로 중복을 방지하고 역할은 DB 기준입니다.
 - JWT 재발급·다른 소셜 계정 연동·사이트 계정 탈퇴는 제공하지 않습니다. 블랙홀 확인과 기존 세션 이용 차단은 MVP에서 제외하며 추후 확장 시 검토합니다.
 
@@ -166,7 +166,7 @@ operationStatus 생략 시 ACTIVE만 조회합니다. 빈 매개변수는 page·
 모집 상태의 응답 값은 `NOT_RECRUITING`(모집 안 함), `SCHEDULED`(모집 예정), `OPEN`(모집 중), `CLOSED`(마감)입니다.
 계산 정책과 날짜 기준은 [도메인 모집 정책](domain-model.md#모집-정보와-상태--확정)을 따릅니다.
 상세의 `managers`는 현재 회장 관계의 사용자 정보를 공개용 형태로 반환합니다. 항목은 `intraLogin`·`displayName` 두 문자열만 포함하며 내부 사용자 ID 오름차순으로 정렬합니다. 회장이 없으면 `[]`이며 복수 회장을 모두 반환합니다. 사용자 내부 ID·42 고유 ID·이메일·연락처·전역 역할·권한 부여 시각은 노출하지 않습니다. 회장 지정·회수와 표시 정보 변경은 이후 조회에 반영됩니다.
-ACTIVE·ARCHIVED 동아리 모두 같은 회장 정보 계약을 적용합니다. 회원 가입 여부는 회장 표시 조건이 아니며, 회장 공개 정보로 부원 명단·최고 관리자 전용 회장 API의 접근 권한이 확대되지는 않습니다. 목록에는 `managers`를 추가하지 않습니다.
+ACTIVE·ARCHIVED 동아리 모두 같은 회장 정보 계약을 적용합니다. 회원 가입 여부는 회장 표시 조건이 아니며, 회장 공개 정보로 부원 명단·ADMIN 전용 회장 API의 접근 권한이 확대되지는 않습니다. 목록에는 `managers`를 추가하지 않습니다.
 상세의 `memberCount`는 해당 동아리의 ACTIVE 부원과 현재 회장을 합친 고유 사용자 수인 0 이상의 정수(Java long)입니다. 두 관계를 모두 가진 사용자는 한 번만 세며, 부원 관계가 없거나 LEFT인 현재 회장도 포함합니다. LEFT 부원이면서 회장이 아닌 사용자는 제외합니다. ACTIVE·ARCHIVED 모두 같은 기준이며 대상자가 없으면 0입니다. 목록에는 이 필드를 추가하지 않습니다.
 `memberCount`는 회원 명단의 항목 수와 다를 수 있습니다. 회장 관계를 집계에 포함해도 부원 등록·회원 명단 조회 권한·사용자의 가입 동아리 수를 변경하지 않습니다. 관계별 기준은 [도메인 정책](domain-model.md#동아리-상세의-회원-수연락처--2026-10-17-확정)을 따릅니다.
 상세의 `recentActivity`는 해당 동아리의 미삭제 활동 중 `startsAt <= 서버 현재 시각`인 가장 최근 1개이며, 동률이면 ID가 큰 활동을 선택합니다. ACTIVE·ARCHIVED 모두 같은 기준입니다. 미래 활동·소모임은 제외하고 대상이 없으면 `null`입니다. 활동 ID·제목·개최 시각·신청 확정 인원(`currentParticipantCount`)·출석 확인 인원(`presentParticipantCount`)만 포함하며 개인 명단은 반환하지 않습니다. 개최 시각은 종료 완료를 뜻하지 않습니다.
@@ -198,22 +198,22 @@ ACTIVE·ARCHIVED 동아리 모두 같은 회장 정보 계약을 적용합니다
 
 | 메서드 | 경로 | 기능 | 권한 | 성공 |
 | --- | --- | --- | --- | --- |
-| GET | /api/v1/admin/users | 사용자 검색, 선택적 role=ADMIN 필터 | ADMIN·SUPER_ADMIN; 역할 필터는 SUPER_ADMIN 전용 | 200 |
-| PUT | /api/v1/admin/users/{userId}/admin-role | ADMIN 부여 | SUPER_ADMIN | 204 |
-| DELETE | /api/v1/admin/users/{userId}/admin-role | ADMIN 회수, USER로 변경 | SUPER_ADMIN | 204 |
-| GET | /api/v1/admin/clubs/{clubId}/managers | 해당 동아리 회장 목록 | SUPER_ADMIN | 200 |
-| PUT | /api/v1/admin/clubs/{clubId}/managers/{userId} | 회장 권한 부여 | SUPER_ADMIN | 204 |
-| DELETE | /api/v1/admin/clubs/{clubId}/managers/{userId} | 회장 권한 회수 | SUPER_ADMIN | 204 |
+| GET | /api/v1/admin/users | 사용자 검색, 선택적 role=ADMIN 필터 | ADMIN | 200 |
+| PUT | /api/v1/admin/users/{userId}/admin-role | ADMIN 부여 | ADMIN | 204 |
+| DELETE | /api/v1/admin/users/{userId}/admin-role | ADMIN 회수, USER로 변경 | ADMIN | 204 |
+| GET | /api/v1/admin/clubs/{clubId}/managers | 해당 동아리 회장 목록 | ADMIN | 200 |
+| PUT | /api/v1/admin/clubs/{clubId}/managers/{userId} | 회장 권한 부여 | ADMIN | 204 |
+| DELETE | /api/v1/admin/clubs/{clubId}/managers/{userId} | 회장 권한 회수 | ADMIN | 204 |
 
 ### 검색·목록 요청과 응답
 
 - 사용자 검색의 `intraLogin`은 생략 가능하며 생략 시 전체 사용자를 조회합니다. 지정하면 1~100자이며 공백만 있는 값·빈 값은 400입니다. 앞뒤 공백을 제거한 뒤 대소문자를 구분하지 않고 로그인명에 부분 일치합니다. `%`·`_`·역슬래시는 검색 와일드카드가 아닌 일반 문자입니다.
-- `role`은 생략하거나 정확히 `ADMIN`만 지정합니다. 빈 값·다른 역할은 400입니다. `role=ADMIN`은 SUPER_ADMIN을 포함하지 않는 정확한 ADMIN 목록이며 `intraLogin`과 AND로 조합합니다. ADMIN이 유효한 역할 필터를 지정하면 403입니다.
+- `role`은 생략하거나 정확히 `ADMIN`만 지정합니다. 빈 값·다른 역할은 400입니다. `role=ADMIN`은 현재 ADMIN인 사용자를 조회하며 `intraLogin`과 AND로 조합합니다. 모든 ADMIN이 역할 필터를 사용할 수 있습니다.
 - 사용자 검색과 회장 목록은 `page=0`, `size=20`이 기본입니다. page는 0 이상, size는 1~100이며 빈 page·size는 기본값입니다. 범위 초과·형식 오류는 400입니다. 사용자 검색은 사용자 ID, 회장 목록은 회장 사용자 ID 오름차순으로 고정합니다.
 - 응답은 `content`, `page`, `size`, `totalElements`, `totalPages`입니다. 결과가 없거나 페이지를 벗어나면 200과 빈 content입니다. 회장 목록은 해당 clubId 관계만 포함합니다.
-- ADMIN의 사용자 검색 항목은 `id`·`intraLogin`·`displayName`만 제공합니다. SUPER_ADMIN의 사용자 검색에는 `role`을 추가합니다. 회장 목록 항목은 역할을 제외한 사용자 요약입니다. 42 고유 ID·원본 프로필·이메일은 노출하지 않습니다.
+- ADMIN의 사용자 검색 항목은 `id`·`intraLogin`·`displayName`·`role`을 제공합니다. 회장 목록 항목은 역할을 제외한 사용자 요약입니다. 42 고유 ID·원본 프로필·이메일은 노출하지 않습니다.
 
-SUPER_ADMIN의 `GET /api/v1/admin/users?intraLogin=chair&page=0&size=20` 응답 예시:
+ADMIN의 `GET /api/v1/admin/users?intraLogin=chair&page=0&size=20` 응답 예시:
 
 ```json
 {
@@ -225,15 +225,15 @@ SUPER_ADMIN의 `GET /api/v1/admin/users?intraLogin=chair&page=0&size=20` 응답 
 }
 ```
 
-ADMIN에게는 위 항목의 `role` 필드가 없으며, 회장 목록도 같은 방식으로 role을 제외합니다.
+회장 목록은 사용자 요약으로 `id`·`intraLogin`·`displayName`만 제공하고 role은 제외합니다.
 
 ### 권한 변경·오류 계약
 
 - 경로 ID는 1 이상의 Java long 범위 정수이며 잘못된 값은 400 `INVALID_REQUEST`입니다. 모든 변경 요청은 본문 없이 세션 쿠키와 CSRF 헤더를 사용합니다.
 - 반복 부여·회수는 204입니다. 이미 USER인 사용자의 ADMIN 회수와 존재하지 않는 회장 관계의 회수도 성공합니다. 단, 대상 사용자·동아리가 실제로 없으면 404 `RESOURCE_NOT_FOUND`입니다.
-- SUPER_ADMIN을 대상으로 ADMIN 부여·회수를 시도하면 본인·타인 모두 409 `SUPER_ADMIN_ROLE_PROTECTED`입니다. 최고 관리자 자체 지정·회수는 별도 운영 DB 절차를 유지합니다.
+- ADMIN은 본인과 타인의 ADMIN 부여·회수를 수행합니다. 다른 ADMIN이 있을 때 본인 회수를 허용하며 마지막 ADMIN의 회수는 409 `LAST_ADMIN_PROTECTED`로 차단합니다. 요청이 거절되면 역할은 유지합니다. 첫 ADMIN은 운영 DB 절차로 지정하며 SUPER_ADMIN 역할은 제공하지 않습니다.
 - 인증 없는 요청은 401 `UNAUTHENTICATED`, 권한 부족·CSRF 누락/불일치는 403 `ACCESS_DENIED`입니다. CSRF 검사가 먼저 적용되므로 인증 없이 CSRF도 빠진 변경 요청은 403일 수 있습니다.
-- ADMIN 변경은 대상 사용자 행 잠금, 회장 변경은 대상 동아리 행 잠금으로 직렬화합니다. 회장 유니크 제약도 유지하며 동시 반복 요청에서 중복 관계를 만들지 않습니다.
+- ADMIN 변경은 PostgreSQL 트랜잭션 advisory lock(키 `42420001`)으로 모든 역할 변경을 직렬화한 뒤 요청자의 현재 ADMIN 여부를 재확인하고 대상 사용자 행을 잠급니다. 마지막 ADMIN 집계와 회수를 같은 트랜잭션에서 수행합니다. 회장 변경은 대상 동아리 행 잠금으로 직렬화합니다. 회장 유니크 제약도 유지하며 동시 반복 요청에서 중복 관계를 만들지 않습니다.
 - 동아리 운영 상태와 관계없이 회장 관계를 부여·회수할 수 있습니다. 활동 작성에는 ACTIVE 동아리의 현재 회장 관계가 필요합니다. 공지는 ACTIVE 동아리 회장 또는 운영진이 작성합니다. 다른 동아리 관계는 변경하지 않습니다.
 - 역할 회수는 기존 세션의 다음 요청부터, 회장 회수는 다음 권한 검사부터 반영됩니다. 회장 지정으로 부원 관계를 생성하지 않으며 권한 변경으로 계정·부원·게시물·참가 기록을 삭제하지 않습니다.
 
@@ -245,12 +245,12 @@ ADMIN에게는 위 항목의 `role` 필드가 없으며, 회장 목록도 같은
 
 | 메서드 | 전체 경로 | 기능 | 권한 | 요청 본문 | 성공·응답 |
 | --- | --- | --- | --- | --- | --- |
-| GET | /api/v1/admin/users/{userId}/clubs | 대상 사용자의 가입 현황 | ADMIN·SUPER_ADMIN | 없음 | 200, MembershipResponse |
-| PUT | /api/v1/admin/clubs/{clubId}/members/{userId} | 부원 등록·재등록 | ADMIN·SUPER_ADMIN, 대상 동아리 ACTIVE | 없음 | 204, 본문 없음 |
+| GET | /api/v1/admin/users/{userId}/clubs | 대상 사용자의 가입 현황 | ADMIN | 없음 | 200, MembershipResponse |
+| PUT | /api/v1/admin/clubs/{clubId}/members/{userId} | 부원 등록·재등록 | ADMIN, 대상 동아리 ACTIVE | 없음 | 204, 본문 없음 |
 | GET | /api/v1/clubs/{clubId}/members | ACTIVE 부원 명단 | 해당 동아리 ACTIVE 부원 | 없음 | 200, Page&lt;UserSummary&gt; |
 
 - 명단 조회만 page·size를 받으며 사용자 ID 오름차순입니다. 사용자 검색은 기존 `GET /api/v1/admin/users`를 사용합니다.
-- ADMIN·SUPER_ADMIN·회장도 해당 동아리의 ACTIVE 부원 관계가 있어야 명단을 조회할 수 있습니다.
+- ADMIN·회장도 해당 동아리의 ACTIVE 부원 관계가 있어야 명단을 조회할 수 있습니다.
 - ACTIVE 반복 등록은 관계·등록자·가입 시각을 유지합니다. LEFT 재등록은 기존 관계를 갱신합니다. 가입 수에 따른 자동 등록 거절은 없습니다.
 - 없는 사용자·동아리는 404, 비활성 동아리 등록은 409 `CLUB_INACTIVE`입니다.
 
@@ -271,7 +271,7 @@ ADMIN에게는 위 항목의 `role` 필드가 없으며, 회장 목록도 같은
 
 | 메서드 | 전체 경로 | 기능 | 권한 | 요청 본문 | 성공·응답 |
 | --- | --- | --- | --- | --- | --- |
-| POST | /api/v1/clubs/{clubId}/notices | 공지 작성 | ACTIVE 동아리의 회장 또는 ADMIN·SUPER_ADMIN | NoticeRequest JSON | 201, CreatedResponse |
+| POST | /api/v1/clubs/{clubId}/notices | 공지 작성 | ACTIVE 동아리의 회장 또는 ADMIN | NoticeRequest JSON | 201, CreatedResponse |
 | GET | /api/v1/clubs/{clubId}/notices | 공지 목록 | 공개 범위·현재 부원/관리 권한 필터 | 없음 | 200, Page&lt;NoticeSummary&gt; |
 | GET | /api/v1/clubs/{clubId}/notices/{noticeId} | 공지 상세 | 공개 범위·현재 부원/관리 권한 검사 | 없음 | 200, NoticeResponse |
 
@@ -295,7 +295,7 @@ ADMIN에게는 위 항목의 `role` 필드가 없으며, 회장 목록도 같은
 | authorId | integer | 필드 없음 | 작성자 사용자 ID |
 | content | string | 필드 없음 | 본문 |
 
-- PUBLIC은 비로그인 방문자를 포함해 조회할 수 있습니다. MEMBERS_ONLY는 해당 동아리 ACTIVE 부원·현재 회장·ADMIN·SUPER_ADMIN만 조회할 수 있습니다. 운영진·회장에는 부원 관계를 요구하지 않으며 다른 동아리 회장·LEFT 부원은 외부인으로 처리합니다.
+- PUBLIC은 비로그인 방문자를 포함해 조회할 수 있습니다. MEMBERS_ONLY는 해당 동아리 ACTIVE 부원·현재 회장·ADMIN만 조회할 수 있습니다. 운영진·회장에는 부원 관계를 요구하지 않으며 다른 동아리 회장·LEFT 부원은 외부인으로 처리합니다.
 - 목록은 조회 가능한 공지만 DB에서 필터링한 뒤 페이지네이션·totalElements·totalPages를 계산합니다. 익명·외부인의 비공개 상세 요청은 401/403 대신 404입니다.
 - 상세는 noticeId와 clubId의 소속 일치를 확인합니다. 다른 동아리 조합·삭제된 공지는 404입니다. 없는 동아리의 목록도 404입니다.
 - 일반 부원·다른 동아리 회장의 작성은 403이며 운영진도 ARCHIVED 동아리에는 작성할 수 없습니다. 기존 공지는 V8에서 MEMBERS_ONLY로 전환됩니다.
@@ -306,7 +306,7 @@ ADMIN에게는 위 항목의 `role` 필드가 없으며, 회장 목록도 같은
 
 | 메서드 | 전체 경로 | 기능 | 권한 | 요청 본문 | 성공·응답 |
 | --- | --- | --- | --- | --- | --- |
-| POST | /api/v1/announcements | 운영 공지 작성 | ADMIN·SUPER_ADMIN | AnnouncementRequest JSON | 201, CreatedResponse |
+| POST | /api/v1/announcements | 운영 공지 작성 | ADMIN | AnnouncementRequest JSON | 201, CreatedResponse |
 | GET | /api/v1/announcements | 메인 화면 운영 공지 목록 | 비로그인 포함 공개 | 없음 | 200, Page&lt;AnnouncementSummary&gt; |
 | GET | /api/v1/announcements/{announcementId} | 운영 공지 상세 | 비로그인 포함 공개 | 없음 | 200, AnnouncementResponse |
 
@@ -395,7 +395,7 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 | GET | /api/v1/clubs/{clubId}/activities/{activityId}/participants | 참가자·출결 명단 | 해당 활동 주최자 | 없음 | 200, Page&lt;ParticipantResponse&gt; |
 | PATCH | /api/v1/clubs/{clubId}/activities/{activityId}/participants/{userId}/attendance | 참가자 출결 기록 | 해당 활동 주최자 | AttendanceRequest JSON | 204, 본문 없음 |
 
-명단만 page·size를 받습니다. 요청·상태 전이·응답 필드·오류는 아래 [참가·출결 공통 계약](#활동소모임-구현-계약)을 따릅니다. 활동의 다른 회장·ADMIN·SUPER_ADMIN도 주최자가 아니면 명단·출결에 접근할 수 없습니다.
+명단만 page·size를 받습니다. 요청·상태 전이·응답 필드·오류는 아래 [참가·출결 공통 계약](#활동소모임-구현-계약)을 따릅니다. 활동의 다른 회장·ADMIN도 주최자가 아니면 명단·출결에 접근할 수 없습니다.
 
 ### 소모임·회차 작성·조회
 
@@ -503,7 +503,7 @@ AnnouncementRequest는 필수 title(공백만 불가·최대 200자), content(�
 빈 page·size는 기본값으로 처리하며 페이지를 벗어나도 200·빈 content입니다. 크기 초과를 자동 축소하지 않습니다. 사용자 검색 API의 intraLogin·role 외에 사용자 지정 sort·검색 기능은 제공하지 않습니다. 각 컨트롤러에 선언한 필터만 동작하며 선언하지 않은 쿼리 매개변수로 정렬·검색·본인 ID를 변경할 수 없습니다. 요청 시각은 `2030-05-02T09:00:00+09:00`처럼 오프셋을 포함하고, 시각 응답은 UTC ISO 8601입니다. dDay는 Asia/Seoul 날짜 차이이며 개최 당일은 D-Day, 개최일이 지난 뒤에는 종료입니다. 당일 개최 시각 경과만으로 종료로 바꾸지 않습니다.
 
 - 인증은 서버 세션이며 변경 요청에는 CSRF 토큰을 보냅니다. 204에는 JSON 본문이 없으므로 프론트에서 response.json()을 호출하지 않습니다.
-- ADMIN 운영 기능은 SUPER_ADMIN도 사용합니다. 비공개 공지의 관리 조회에는 운영 권한을 인정하며, 부원 명단·활동 작성·참가 명단·출결의 관계 조건은 유지합니다.
+- ADMIN은 운영 기능과 권한 부여·회수를 사용합니다. 비공개 공지의 관리 조회에는 운영 권한을 인정하며, 부원 명단·활동 작성·참가 명단·출결의 관계 조건은 유지합니다.
 - 사진 URL은 별도 저장소의 이미지 조회 주소입니다. 프론트의 기본 이미지·만료 URL 갱신을 [연결 예시](mvp-api-examples.md)와 함께 구현합니다.
 
 ## 활동·소모임 구현 계약
@@ -572,7 +572,7 @@ UNCHECKED로 되돌리면 체크 사용자·시각을 비웁니다. PRESENT 기�
 | 413 | PAYLOAD_TOO_LARGE | 사진 파일 또는 전체 multipart 요청 용량 초과 |
 | 503 | STORAGE_UNAVAILABLE | 사진 업로드·로컬 파일 조회 장애·S3 설정 누락·이미지 URL 생성 실패 등; 사진이 있는 활동 목록·상세 조회에서도 발생 가능 |
 
-인증 없이 CSRF도 빠진 변경 요청은 인증보다 CSRF 검사에 의해 403일 수 있습니다. 여러 충돌 조건을 동시에 만족하면 먼저 검사한 조건의 오류가 반환됩니다. 예를 들어 마감 후 중복 참가·취소는 모집 마감 오류가 우선합니다. 기존 권한 관리의 `SUPER_ADMIN_ROLE_PROTECTED`는 해당 권한 관리 계약을 따릅니다.
+인증 없이 CSRF도 빠진 변경 요청은 인증보다 CSRF 검사에 의해 403일 수 있습니다. 여러 충돌 조건을 동시에 만족하면 먼저 검사한 조건의 오류가 반환됩니다. 예를 들어 마감 후 중복 참가·취소는 모집 마감 오류가 우선합니다. 기존 권한 관리의 `LAST_ADMIN_PROTECTED`는 해당 권한 관리 계약을 따릅니다.
 
 ## 공지·활동 경로 전환
 
@@ -609,9 +609,9 @@ UNCHECKED로 되돌리면 체크 사용자·시각을 비웁니다. PRESENT 기�
 | isMember | 해당 동아리 ACTIVE 부원 관계 |
 | isManager | 해당 동아리 회장 관계 |
 | canCreateActivity | ACTIVE 동아리의 회장 |
-| canCreateNotice | ACTIVE 동아리의 회장 또는 ADMIN·SUPER_ADMIN |
+| canCreateNotice | ACTIVE 동아리의 회장 또는 ADMIN |
 | canViewMembers | 해당 동아리 ACTIVE 부원 관계 |
-| canReadPrivateNotices | 해당 동아리 ACTIVE 부원·회장 또는 ADMIN·SUPER_ADMIN |
+| canReadPrivateNotices | 해당 동아리 ACTIVE 부원·회장 또는 ADMIN |
 
 내 동아리 응답의 최상위 isMember·isManager와 permissions 안의 같은 필드는 동일한 값입니다.
 

@@ -66,7 +66,7 @@ OAuth 인가 요청은 Spring Security의 기본 서버 세션 저장소를 사�
 
 ## 실제 구현: 동아리 회장 권한 검사
 
-`ClubPermissionService.requireManager(actorId, clubId)`는 현재 DB에서 대상 동아리 존재(없으면 404), ACTIVE 상태와 해당 사용자의 ClubManager 관계(없거나 ARCHIVED면 403)를 확인합니다. USER/ADMIN/SUPER_ADMIN 모두 같은 관계 조건을 적용하고 제거된 회장 관계는 다음 요청부터 반영합니다. 다른 기능은 이 서비스를 호출하며 club Repository를 직접 참조하지 않습니다. 부원 명단 권한은 ClubMembershipService, 참가·출결 주최자 권한은 ActivityParticipationService·SessionParticipationService에서 검사합니다.
+`ClubPermissionService.requireManager(actorId, clubId)`는 현재 DB에서 대상 동아리 존재(없으면 404), ACTIVE 상태와 해당 사용자의 ClubManager 관계(없거나 ARCHIVED면 403)를 확인합니다. USER/ADMIN 모두 같은 관계 조건을 적용하고 제거된 회장 관계는 다음 요청부터 반영합니다. 다른 기능은 이 서비스를 호출하며 club Repository를 직접 참조하지 않습니다. 부원 명단 권한은 ClubMembershipService, 참가·출결 주최자 권한은 ActivityParticipationService·SessionParticipationService에서 검사합니다.
 
 ## 실제 구현: 공지 권한과 조회 필터
 

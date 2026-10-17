@@ -337,7 +337,7 @@ class ClubQueryIntegrationTests {
         long otherClub = insertClub("Other club", OperationStatus.ACTIVE);
         long first = insertUser(501, "first", "First manager", "USER");
         long second = insertUser(502, "second", "Second manager", "ADMIN");
-        long unrelated = insertUser(503, "unrelated", "Other manager", "SUPER_ADMIN");
+        long unrelated = insertUser(503, "unrelated", "Other manager", "ADMIN");
         insertManager(otherClub, unrelated);
 
         mockMvc.perform(get("/api/v1/clubs/{clubId}", club))

@@ -52,16 +52,9 @@ class NoticeAccessIntegrationTests {
         jdbc.update("DELETE FROM users");
         long intra = 8000;
         for (String role :
-                List.of(
-                        "OUTSIDER",
-                        "LEFT",
-                        "OTHER_MANAGER",
-                        "MEMBER",
-                        "MANAGER",
-                        "ADMIN",
-                        "SUPER_ADMIN"))
+                List.of("OUTSIDER", "LEFT", "OTHER_MANAGER", "MEMBER", "MANAGER", "ADMIN"))
             users.put(role, accounts.synchronize42Profile(++intra, role.toLowerCase(), role).id());
-        for (String role : List.of("ADMIN", "SUPER_ADMIN"))
+        for (String role : List.of("ADMIN"))
             jdbc.update("UPDATE users SET role=? WHERE id=?", role, users.get(role));
         club = clubs.saveAndFlush(new Club("A", "Summary", "Description")).getId();
         otherClub = clubs.saveAndFlush(new Club("B", "Summary", "Description")).getId();
@@ -145,7 +138,7 @@ class NoticeAccessIntegrationTests {
     }
 
     boolean privileged(String role) {
-        return Set.of("MEMBER", "MANAGER", "ADMIN", "SUPER_ADMIN").contains(role);
+        return Set.of("MEMBER", "MANAGER", "ADMIN").contains(role);
     }
 
     @ParameterizedTest
@@ -157,8 +150,7 @@ class NoticeAccessIntegrationTests {
                 "OTHER_MANAGER",
                 "MEMBER",
                 "MANAGER",
-                "ADMIN",
-                "SUPER_ADMIN"
+                "ADMIN"
             })
     void listFiltersBeforePaginationAndDetailEnforcesCurrentRelationship(String role)
             throws Exception {
@@ -183,18 +175,9 @@ class NoticeAccessIntegrationTests {
     }
 
     @ParameterizedTest
-    @ValueSource(
-            strings = {
-                "OUTSIDER",
-                "LEFT",
-                "OTHER_MANAGER",
-                "MEMBER",
-                "MANAGER",
-                "ADMIN",
-                "SUPER_ADMIN"
-            })
+    @ValueSource(strings = {"OUTSIDER", "LEFT", "OTHER_MANAGER", "MEMBER", "MANAGER", "ADMIN"})
     void clubWritingRequiresManagerOrOperatorAndDefaultsToPrivate(String role) throws Exception {
-        boolean allowed = Set.of("MANAGER", "ADMIN", "SUPER_ADMIN").contains(role);
+        boolean allowed = Set.of("MANAGER", "ADMIN").contains(role);
         var result =
                 mvc.perform(
                                 as(
@@ -251,7 +234,7 @@ class NoticeAccessIntegrationTests {
                 .andExpect(status().isBadRequest());
         mvc.perform(get(path()).param("size", "101")).andExpect(status().isBadRequest());
         jdbc.update("UPDATE clubs SET operation_status='ARCHIVED' WHERE id=?", club);
-        for (String role : List.of("MANAGER", "ADMIN", "SUPER_ADMIN"))
+        for (String role : List.of("MANAGER", "ADMIN"))
             mvc.perform(
                             as(
                                     post(path())
@@ -281,7 +264,7 @@ class NoticeAccessIntegrationTests {
     @Test
     void deletedPrivateAndPublicNoticesAreHiddenAndLegacyPathIsRemoved() throws Exception {
         jdbc.update("UPDATE notices SET deleted_at=now() WHERE id IN (?,?)", privateId, publicId);
-        mvc.perform(get(path() + "/" + privateId).session(session(users.get("SUPER_ADMIN"))))
+        mvc.perform(get(path() + "/" + privateId).session(session(users.get("ADMIN"))))
                 .andExpect(status().isNotFound());
         mvc.perform(get(path() + "/" + publicId)).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/notices/" + publicId).session(session(users.get("ADMIN"))))
@@ -292,9 +275,9 @@ class NoticeAccessIntegrationTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"MANAGER", "ADMIN", "SUPER_ADMIN", "OUTSIDER"})
+    @ValueSource(strings = {"MANAGER", "ADMIN", "OUTSIDER"})
     void announcementsAreSeparatePublicAndOnlyOperatorsCanWrite(String role) throws Exception {
-        boolean allowed = Set.of("ADMIN", "SUPER_ADMIN").contains(role);
+        boolean allowed = Set.of("ADMIN").contains(role);
         var result =
                 mvc.perform(
                                 as(

@@ -52,15 +52,15 @@ Spotless는 Google Java Format AOSP 스타일을 적용하며 빌드 중에는 �
 | --- | --- |
 | 실행·DB 기반 | 완료: Java 17, Spring Boot, JPA, Flyway, PostgreSQL Compose, Spotless·Lombok |
 | 동아리 공개 조회 | 완료: 목록·상세, 페이지네이션·운영 상태 필터·모집 표시; 상세에 회장·회장 포함 회원 수·최근 시작한 활동 1개와 신청/출석 인원 공개 |
-| 인증·내 정보 | 완료: 42경산 OAuth, 세션·CSRF·로그아웃·USER/ADMIN/SUPER_ADMIN 검사; 실제 42 자격증명 연동 확인 필요 |
-| DB 스키마 | V1~V10 구현: 사용자·동아리·권한·부원·공지·활동/사진/참가·소모임/회차/참가·사진 정리 저널·공지 공개 범위·운영 공지·회차 제목 |
-| 역할·회장 권한 기반 | 완료: SUPER_ADMIN의 ADMIN 운영 권한 포함, ACTIVE 동아리별 회장 관계 검사, [초기 DB 입력 절차](docs/initial-data-setup.md); 사용자 검색·SUPER_ADMIN의 ADMIN/회장 권한 관리 API 구현 완료 |
+| 인증·내 정보 | 완료: 42경산 OAuth, 세션·CSRF·로그아웃·USER/ADMIN 검사; 로컬 실제 42 로그인·세션·로그아웃 확인 |
+| DB 스키마 | V1~V11 구현: 사용자·동아리·권한·부원·공지·활동/사진/참가·소모임/회차/참가·사진 정리 저널·공지 공개 범위·운영 공지·회차 제목·ADMIN 통합 |
+| 역할·회장 권한 기반 | 완료: ADMIN의 운영·권한 관리, ACTIVE 동아리별 회장 관계 검사, [초기 DB 입력 절차](docs/initial-data-setup.md); 사용자 검색·ADMIN/회장 권한 관리 API 구현, 본인 회수 허용·마지막 ADMIN 보호 완료 |
 | 부원·활동·공지·소모임 | 완료: 부원 등록·명단, 동아리 공지 공개 범위·운영 공지, 활동·사진, 소모임·회차, 선착순 참가·취소·기본 출결; 사진 첨부는 기본 로컬 저장, [저장소 설정](docs/environment-variables.md#활동-사진-저장소) 필요 |
 | 마이페이지·내 권한 | 완료: 가입·관리 동아리, 동아리별 권한, 통합 참가 내역·소모임별 회차; 캘린더 API 제외 |
 | Swagger/OpenAPI | 미도입: Boot 3.5 호환 springdoc 2.8.x의 패치 버전 결정 필요 |
 | CI·배포 | GitHub Actions CI 미도입; Nginx·백엔드·PostgreSQL Compose 구현; 공개 배포·HTTPS·CD 미정 |
 
-[MVP 구현 계획](docs/mvp-implementation-plan.md)의 0~7단계·마이페이지 확장과 업무 API 38개를 구현했습니다. 실제 42 로그인·프론트엔드 연동, 운영 초기 데이터 입력과 사진 저장 디렉터리·이미지 조회 주소 설정은 배포 환경에서 확인해야 합니다.
+[MVP 구현 계획](docs/mvp-implementation-plan.md)의 0~7단계·마이페이지 확장과 업무 API 38개를 구현했습니다. 실제 42 로그인·프론트엔드 연동과 운영 초기 데이터·사진 설정은 배포 환경에서도 확인해야 합니다.
 사진은 기본적으로 호스트 실행 시 `./data/photos`, Compose에서는 `photo_data` 볼륨에 저장하며 `http://localhost:8080/api/v1/photos/activities/{filename}`으로 조회합니다. AWS 계정·자격증명 없이 로컬 평가가 가능합니다. 다른 호스트·포트에서는 `PHOTO_LOCAL_BASE_URL`을 변경합니다. 호스트 실행에서는 S3를 `PHOTO_STORAGE_MODE=s3`로 선택할 수 있고 기본 Compose는 로컬 볼륨을 사용합니다.
 메인 운영 공지는 비로그인 공개이며 동아리 공지는 기본 비공개입니다. 공지·활동 상세와 활동 참가·출결 경로는 clubId 아래로 통일했습니다. 기존 경로는 제거했으므로 [전환 계약](docs/api-endpoints.md#공지활동-경로-전환)을 확인합니다.
 소모임 회차 상세·참가·출결도 `/api/v1/gatherings/{gatheringId}/sessions/{sessionId}` 아래로 통일했습니다. 기존 경로는 [소모임 회차 전환 계약](docs/api-endpoints.md#소모임-회차-경로-전환)을 따릅니다.
@@ -75,7 +75,7 @@ Spotless는 Google Java Format AOSP 스타일을 적용하며 빌드 중에는 �
 | 프론트 연동용 생성·조회·참가·출결 예시 | [MVP API 연결 예시](docs/mvp-api-examples.md) |
 | 기능별 엔드포인트 구현 순서·DB 작업·완료 조건 | [MVP 구현 계획](docs/mvp-implementation-plan.md) |
 | FE 요청 대조·연동 검증 순서·미정 사항과 착수 조건 | [FE 연동 구현 계획](docs/fe-integration-plan.md) |
-| 초기 동아리·회장·최고 관리자 DB 입력 | [초기 데이터 절차](docs/initial-data-setup.md) |
+| 초기 동아리·회장·ADMIN DB 입력 | [초기 데이터 절차](docs/initial-data-setup.md) |
 | 실제 DB·관계도·제약조건 | [ERD](docs/erd.md) |
 | 패키지·계층·의존성·DB 운영 규칙 | [아키텍처](docs/architecture.md) |
 | 실제 코드 흐름과 구현 시 확인 사항 | [모듈 가이드](docs/module-development.md) |

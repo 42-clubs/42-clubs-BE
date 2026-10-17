@@ -10,7 +10,7 @@ Cookie: JSESSIONID=...
 X-CSRF-TOKEN: ...
 ```
 
-ADMIN·SUPER_ADMIN은 본문 없이 요청하고 204를 받습니다. `GET /api/v1/admin/users/2/clubs`는 다음과 같습니다.
+ADMIN은 본문 없이 요청하고 204를 받습니다. `GET /api/v1/admin/users/2/clubs`는 다음과 같습니다.
 
 ```json
 {"userId":2,"clubs":[{"id":1,"name":"예시 동아리","operationStatus":"ACTIVE"}],"activeClubCount":1}
@@ -52,7 +52,7 @@ X-CSRF-TOKEN: ...
 {"title":"동아리 서류 제출기간","content":"기간 내 활동 서류를 제출해 주세요."}
 ```
 
-ADMIN·SUPER_ADMIN만 작성하며 201·`Location: /api/v1/announcements/10`·`{"id":10}`을 반환합니다. 메인 화면은 `GET /api/v1/announcements?page=0&size=5`로 최신 공지를 조회합니다. 동아리 가입·로그인 없이 조회하며 동아리 공지는 이 목록에 섞이지 않습니다.
+ADMIN만 작성하며 201·`Location: /api/v1/announcements/10`·`{"id":10}`을 반환합니다. 메인 화면은 `GET /api/v1/announcements?page=0&size=5`로 최신 공지를 조회합니다. 동아리 가입·로그인 없이 조회하며 동아리 공지는 이 목록에 섞이지 않습니다.
 
 ```json
 {"content":[{"id":10,"title":"동아리 서류 제출기간","createdAt":"2030-05-01T00:00:00Z"}],"page":0,"size":5,"totalElements":1,"totalPages":1}

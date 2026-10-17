@@ -1,5 +1,6 @@
 package com.clubplatform.user.service;
 
+import com.clubplatform.global.exception.ConflictException;
 import com.clubplatform.global.exception.ResourceNotFoundException;
 import com.clubplatform.user.dto.AdminUserSummary;
 import com.clubplatform.user.dto.UserDirectoryPage;
@@ -28,14 +29,7 @@ public class UserAdministrationService {
 
     public UserDirectoryPage search(
             long actorId, String intraLogin, String role, int page, int size) {
-        var actor = requireUser(actorId);
-        boolean superAdmin = actor.getRole() == UserRole.SUPER_ADMIN;
-        if (!superAdmin && actor.getRole() != UserRole.ADMIN) {
-            throw new AccessDeniedException("운영 권한이 필요합니다.");
-        }
-        if (role != null && !superAdmin) {
-            throw new AccessDeniedException("역할 필터는 최고 관리자만 사용할 수 있습니다.");
-        }
+        requireAdmin(actorId);
         Specification<User> filter = (root, query, cb) -> cb.conjunction();
         if (intraLogin != null) {
             String pattern =
@@ -59,42 +53,40 @@ public class UserAdministrationService {
             filter = filter.and((root, query, cb) -> cb.equal(root.get("role"), UserRole.ADMIN));
         }
         var result = users.findAll(filter, PageRequest.of(page, size, Sort.by("id")));
-        if (superAdmin) {
-            return UserDirectoryPage.from(
-                    result.map(
-                            user ->
-                                    new AdminUserSummary(
-                                            user.getId(),
-                                            user.getIntraLogin(),
-                                            user.getDisplayName(),
-                                            user.getRole())));
-        }
-        return UserDirectoryPage.from(result.map(UserAdministrationService::summary));
+        return UserDirectoryPage.from(
+                result.map(
+                        user ->
+                                new AdminUserSummary(
+                                        user.getId(),
+                                        user.getIntraLogin(),
+                                        user.getDisplayName(),
+                                        user.getRole())));
     }
 
     @Transactional
     public void changeAdminRole(long actorId, long userId, boolean granted) {
-        requireSuperAdmin(actorId);
+        // Serialize role mutations across application instances before rechecking the actor.
+        users.lockAdminRoleChanges();
+        requireAdmin(actorId);
         var target =
                 users.findForUpdate(userId)
                         .orElseThrow(() -> new ResourceNotFoundException("사용자를 찾을 수 없습니다."));
+        if (!granted
+                && target.getRole() == UserRole.ADMIN
+                && users.countByRole(UserRole.ADMIN) <= 1) {
+            throw new ConflictException("LAST_ADMIN_PROTECTED", "마지막 ADMIN의 권한은 회수할 수 없습니다.");
+        }
         target.changeAdminRole(granted);
     }
 
     public boolean isAdmin(long actorId) {
         var role = requireUser(actorId).getRole();
-        return role == UserRole.ADMIN || role == UserRole.SUPER_ADMIN;
+        return role == UserRole.ADMIN;
     }
 
     public void requireAdmin(long actorId) {
         if (!isAdmin(actorId)) {
             throw new AccessDeniedException("운영 권한이 필요합니다.");
-        }
-    }
-
-    public void requireSuperAdmin(long actorId) {
-        if (requireUser(actorId).getRole() != UserRole.SUPER_ADMIN) {
-            throw new AccessDeniedException("최고 관리자 권한이 필요합니다.");
         }
     }
 

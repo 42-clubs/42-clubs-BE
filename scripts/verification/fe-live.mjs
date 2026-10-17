@@ -126,7 +126,7 @@ try {
     group = "OAuth fixture sessions and current roles";
     const users = {};
     for (const [i, name] of [
-        "super",
+        "operator",
         "admin",
         "manager",
         "member",
@@ -134,12 +134,12 @@ try {
     ].entries()) {
         users[name] = await login(name, String(9001 + i));
     }
-    assert.equal(users.super.role, "SUPER_ADMIN");
+    assert.equal(users.operator.role, "ADMIN");
     assert.equal(users.admin.role, "ADMIN");
     done(group);
 
     group = "role management and membership are independent";
-    as("super");
+    as("operator");
     await accessApi.setManager("1", users.manager.id, true);
     assert.equal((await accessApi.managers("1"))[0].id, users.manager.id);
     // Public detail exposes only the approved display fields, without granting admin access.
@@ -149,7 +149,7 @@ try {
     ]);
     assert.equal((await clubApi.detailPublic("1")).memberCount, 1);
     assert.deepEqual((await clubApi.detailPublic("2")).managers, []);
-    as("super");
+    as("operator");
     await accessApi.setManager("1", users.member.id, true);
     as("anonymous");
     assert.deepEqual((await clubApi.detailPublic("1")).managers, [
@@ -157,28 +157,37 @@ try {
         { intraLogin: "member", displayName: "member" },
     ]);
     assert.equal((await clubApi.detailPublic("1")).memberCount, 2);
-    as("super");
+    as("operator");
     await accessApi.setManager("1", users.member.id, false);
     as("anonymous");
     assert.deepEqual((await clubApi.detailPublic("1")).managers, [
         { intraLogin: "manager", displayName: "manager" },
     ]);
-    as("super");
+    as("operator");
     await accessApi.setOperator(users.outsider.id, true);
     as("outsider");
     assert.equal((await authApi.me()).role, "ADMIN");
-    as("super");
+    as("operator");
     await accessApi.setOperator(users.outsider.id, false);
-    await denied(409, () => accessApi.setOperator(users.super.id, false));
+    as("admin");
+    await accessApi.setOperator(users.admin.id, false);
+    assert.equal((await authApi.me()).role, "USER");
+    await denied(403, () => accessApi.users({ page: 0 }));
+    as("operator");
+    await denied(409, () => accessApi.setOperator(users.operator.id, false));
+    await accessApi.setOperator(users.admin.id, true);
     as("admin");
     assert(
         (await clubApi.searchUsers("member")).some(
             (user) => user.id === users.member.id,
         ),
     );
-    await denied(403, () => accessApi.managers("1"));
-    await denied(403, () => accessApi.setManager("1", users.member.id, true));
-    await denied(403, () => accessApi.users({ role: "ADMIN", page: 0 }));
+    assert.equal((await accessApi.managers("1"))[0].id, users.manager.id);
+    await accessApi.setManager("1", users.member.id, true);
+    await accessApi.setManager("1", users.member.id, false);
+    const adminUsers = await accessApi.users({ role: "ADMIN", page: 0 });
+    assert(adminUsers.content.every((user) => user.role === "ADMIN"));
+    assert.equal(adminUsers.totalElements, 2);
     await clubApi.registerMember("1", users.member.id);
     await clubApi.registerMember("1", users.member.id);
     assert.equal(
@@ -194,14 +203,14 @@ try {
     as("member");
     assert.equal((await clubApi.members("1")).length, 1);
     assert.equal((await clubApi.detailPublic("1")).memberCount, 2);
-    as("super");
+    as("operator");
     await accessApi.setManager("1", users.member.id, true);
     as("anonymous");
     const countedDetail = await clubApi.detailPublic("1");
     assert.equal(countedDetail.memberCount, 2);
     assert.equal(Object.hasOwn(countedDetail, "contact"), false);
     assert.equal(Object.hasOwn(countedDetail, "publicContact"), false);
-    as("super");
+    as("operator");
     await accessApi.setManager("1", users.member.id, false);
     done(group);
 

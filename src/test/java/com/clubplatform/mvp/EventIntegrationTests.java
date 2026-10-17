@@ -93,7 +93,7 @@ class EventIntegrationTests {
         user = accounts.synchronize42Profile(5002, "member", "Member").id();
         other = accounts.synchronize42Profile(5003, "other", "Other").id();
         admin = accounts.synchronize42Profile(5004, "admin", "Admin").id();
-        jdbc.update("UPDATE users SET role='SUPER_ADMIN' WHERE id=?", admin);
+        jdbc.update("UPDATE users SET role='ADMIN' WHERE id=?", admin);
         club = clubs.saveAndFlush(new Club("Club", "Summary", "Description")).getId();
         jdbc.update(
                 "INSERT INTO club_managers(user_id,club_id,created_at) VALUES (?,?,now())",

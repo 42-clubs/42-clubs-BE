@@ -70,7 +70,7 @@ public class SecurityConfig {
                                         .requestMatchers("/", "/error")
                                         .permitAll()
                                         .requestMatchers("/api/v1/admin/**")
-                                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                                        .hasRole("ADMIN")
                                         .anyRequest()
                                         .authenticated())
                 .exceptionHandling(

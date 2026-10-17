@@ -283,7 +283,7 @@ class AuthIntegrationTests {
     }
 
     @Test
-    void oauthProfileCannotGrantSuperAdminToNewAccount() throws Exception {
+    void oauthProfileCannotGrantAdminToNewAccount() throws Exception {
         profile =
                 Map.of(
                         "id",
@@ -295,7 +295,7 @@ class AuthIntegrationTests {
                         "email",
                         "testlogin@student.42gyeongsan.kr",
                         "role",
-                        "SUPER_ADMIN");
+                        "ADMIN");
         var session = login();
         mvc.perform(get("/api/v1/me").session(session))
                 .andExpect(status().isOk())
@@ -305,12 +305,11 @@ class AuthIntegrationTests {
     }
 
     @Test
-    void initialSuperAdminLoginPreservesAccountAndRoleAndRevocationAffectsSession()
-            throws Exception {
+    void initialAdminLoginPreservesAccountAndRoleAndRevocationAffectsSession() throws Exception {
         jdbc.update(
                 """
                 INSERT INTO users (intra_id, intra_login, display_name, role, created_at, updated_at)
-                VALUES (4242, 'before-login', 'Initial User', 'SUPER_ADMIN', now(), now())
+                VALUES (4242, 'before-login', 'Initial User', 'ADMIN', now(), now())
                 """);
         long initialId = jdbc.queryForObject("SELECT id FROM users", Long.class);
         var createdAt =
@@ -320,13 +319,13 @@ class AuthIntegrationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(initialId))
                 .andExpect(jsonPath("$.intraLogin").value("testlogin"))
-                .andExpect(jsonPath("$.role").value("SUPER_ADMIN"));
+                .andExpect(jsonPath("$.role").value("ADMIN"));
         var context =
                 (org.springframework.security.core.context.SecurityContext)
                         session.getAttribute("SPRING_SECURITY_CONTEXT");
         assertThat(context.getAuthentication().getAuthorities())
                 .extracting(org.springframework.security.core.GrantedAuthority::getAuthority)
-                .containsExactlyInAnyOrder("ROLE_ADMIN", "ROLE_SUPER_ADMIN");
+                .containsExactly("ROLE_ADMIN");
         mvc.perform(get("/api/v1/admin/test-operation").session(session))
                 .andExpect(status().isOk());
         mvc.perform(post("/api/v1/admin/test-operation").session(session))
@@ -350,8 +349,7 @@ class AuthIntegrationTests {
     }
 
     @Test
-    void managerRevocationAffectsExistingSessionAndSuperAdminCannotBypassRelation()
-            throws Exception {
+    void managerRevocationAffectsExistingSessionAndAdminCannotBypassRelation() throws Exception {
         var session = login();
         long userId = jdbc.queryForObject("SELECT id FROM users", Long.class);
         long clubId =
@@ -363,7 +361,7 @@ class AuthIntegrationTests {
                 RETURNING id
                 """,
                         Long.class);
-        jdbc.update("UPDATE users SET role='SUPER_ADMIN'");
+        jdbc.update("UPDATE users SET role='ADMIN'");
         mvc.perform(
                         post("/api/v1/test-clubs/{clubId}/write", clubId)
                                 .session(session)

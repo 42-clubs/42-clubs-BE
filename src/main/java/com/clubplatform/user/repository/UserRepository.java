@@ -1,6 +1,7 @@
 package com.clubplatform.user.repository;
 
 import com.clubplatform.user.entity.User;
+import com.clubplatform.user.entity.UserRole;
 import jakarta.persistence.LockModeType;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,6 +13,12 @@ import org.springframework.data.repository.query.Param;
 
 public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
     Optional<User> findByIntraId(Long intraId);
+
+    long countByRole(UserRole role);
+
+    /** Stable PostgreSQL transaction lock shared by all ADMIN role changes (42 Clubs namespace). */
+    @Query(value = "SELECT 1 FROM pg_advisory_xact_lock(42420001)", nativeQuery = true)
+    int lockAdminRoleChanges();
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.id = :id")

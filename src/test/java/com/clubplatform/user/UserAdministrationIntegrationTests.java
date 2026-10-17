@@ -10,6 +10,7 @@ import com.clubplatform.club.repository.ClubManagerRepository;
 import com.clubplatform.club.repository.ClubRepository;
 import com.clubplatform.club.service.ClubManagerAdministrationService;
 import com.clubplatform.club.service.ClubPermissionService;
+import com.clubplatform.global.exception.ConflictException;
 import com.clubplatform.global.security.AuthenticatedUser;
 import com.clubplatform.support.PostgreSqlTestConfig;
 import com.clubplatform.user.service.UserAccountService;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -60,27 +62,28 @@ class UserAdministrationIntegrationTests {
         owner = accounts.synchronize42Profile(101, "owner", "Owner").id();
         admin = accounts.synchronize42Profile(102, "admin", "Admin").id();
         member = accounts.synchronize42Profile(103, "alpha_member", "Member").id();
-        jdbc.update("UPDATE users SET role='SUPER_ADMIN' WHERE id=?", owner);
+        jdbc.update("UPDATE users SET role='ADMIN' WHERE id=?", owner);
         jdbc.update("UPDATE users SET role='ADMIN' WHERE id=?", admin);
         clubId = clubs.saveAndFlush(new Club("A", "Summary", "Description")).getId();
         otherClubId = clubs.saveAndFlush(new Club("B", "Summary", "Description")).getId();
     }
 
     @Test
-    void searchSeparatesRoleVisibilityAndFiltersWithStablePagination() throws Exception {
+    void adminsSearchRolesAndFiltersWithStablePagination() throws Exception {
         mvc.perform(get("/api/v1/admin/users").session(session(admin)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(3))
                 .andExpect(jsonPath("$.content[0].id").value(owner))
-                .andExpect(jsonPath("$.content[0].role").doesNotExist())
+                .andExpect(jsonPath("$.content[0].role").value("ADMIN"))
                 .andExpect(jsonPath("$.content[0].intraId").doesNotExist());
         mvc.perform(get("/api/v1/admin/users").session(session(owner)).param("role", "ADMIN"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalElements").value(1))
-                .andExpect(jsonPath("$.content[0].id").value(admin))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].id").value(owner))
                 .andExpect(jsonPath("$.content[0].role").value("ADMIN"));
         mvc.perform(get("/api/v1/admin/users").session(session(admin)).param("role", "ADMIN"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2));
         mvc.perform(
                         get("/api/v1/admin/users")
                                 .session(session(owner))
@@ -126,6 +129,7 @@ class UserAdministrationIntegrationTests {
                 "intraLogin=",
                 "intraLogin=   ",
                 "role=USER",
+                "role=SUPER_ADMIN",
                 "role=",
                 "page=-1",
                 "page=x",
@@ -154,8 +158,7 @@ class UserAdministrationIntegrationTests {
         mvc.perform(request(operation).session(session(member)).with(csrf()))
                 .andExpect(status().isForbidden());
         mvc.perform(request(operation).session(session(admin)).with(csrf()))
-                .andExpect(
-                        operation.equals("GET_USERS") ? status().isOk() : status().isForbidden());
+                .andExpect(operation.startsWith("GET") ? status().isOk() : status().isNoContent());
         mvc.perform(request(operation).session(session(owner)).with(csrf()))
                 .andExpect(operation.startsWith("GET") ? status().isOk() : status().isNoContent());
     }
@@ -171,7 +174,7 @@ class UserAdministrationIntegrationTests {
     }
 
     @Test
-    void roleChangesAreIdempotentProtectSuperAdminAndRefreshExistingSessions() throws Exception {
+    void roleChangesAreIdempotentAndSelfRevocationRefreshesExistingSessions() throws Exception {
         var targetSession = session(member);
         var ownerSession = session(owner);
         managerAdmin.change(owner, clubId, member, true);
@@ -194,21 +197,27 @@ class UserAdministrationIntegrationTests {
                 .andExpect(status().isForbidden());
         assertThat(accounts.findIdentity(member).orElseThrow().role()).isEqualTo("USER");
         assertThat(managers.existsByUserIdAndClubId(member, clubId)).isTrue();
-        for (var request :
-                List.of(
-                        put("/api/v1/admin/users/{id}/admin-role", owner),
-                        delete("/api/v1/admin/users/{id}/admin-role", owner))) {
-            mvc.perform(request.session(ownerSession).with(csrf()))
-                    .andExpect(status().isConflict())
-                    .andExpect(jsonPath("$.code").value("SUPER_ADMIN_ROLE_PROTECTED"));
-        }
-        // 최고 관리자 역할을 잃은 기존 세션도 다음 요청부터 권한 관리에 접근할 수 없다.
-        jdbc.update("UPDATE users SET role='ADMIN' WHERE id=?", owner);
         mvc.perform(
-                        put("/api/v1/admin/users/{id}/admin-role", member)
+                        put("/api/v1/admin/users/{id}/admin-role", owner)
                                 .session(ownerSession)
                                 .with(csrf()))
+                .andExpect(status().isNoContent());
+        mvc.perform(
+                        delete("/api/v1/admin/users/{id}/admin-role", owner)
+                                .session(ownerSession)
+                                .with(csrf()))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/admin/users").session(ownerSession))
                 .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/me").session(ownerSession))
+                .andExpect(jsonPath("$.role").value("USER"));
+        mvc.perform(
+                        delete("/api/v1/admin/users/{id}/admin-role", admin)
+                                .session(session(admin))
+                                .with(csrf()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("LAST_ADMIN_PROTECTED"));
+        assertThat(accounts.findIdentity(admin).orElseThrow().role()).isEqualTo("ADMIN");
     }
 
     @Test
@@ -280,6 +289,49 @@ class UserAdministrationIntegrationTests {
         assertThat(managers.count()).isZero();
         concurrently(() -> users.changeAdminRole(owner, member, false));
         assertThat(accounts.findIdentity(member).orElseThrow().role()).isEqualTo("USER");
+    }
+
+    @Test
+    void simultaneousSelfRevocationsKeepLastAdmin() throws Exception {
+        var successes = new AtomicInteger();
+        var protectedRequests = new AtomicInteger();
+        var actors = new java.util.concurrent.ConcurrentLinkedQueue<>(List.of(owner, admin));
+        concurrently(
+                () -> {
+                    long actor = actors.remove();
+                    try {
+                        users.changeAdminRole(actor, actor, false);
+                        successes.incrementAndGet();
+                    } catch (ConflictException exception) {
+                        assertThat(exception.getCode()).isEqualTo("LAST_ADMIN_PROTECTED");
+                        protectedRequests.incrementAndGet();
+                    }
+                });
+        assertThat(successes.get()).isEqualTo(1);
+        assertThat(protectedRequests.get()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM users WHERE role='ADMIN'", Long.class))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void simultaneousMutualRevocationsRecheckActorAfterWaiting() throws Exception {
+        var successes = new AtomicInteger();
+        var denied = new AtomicInteger();
+        var actors = new java.util.concurrent.ConcurrentLinkedQueue<>(List.of(owner, admin));
+        concurrently(
+                () -> {
+                    long actor = actors.remove();
+                    try {
+                        users.changeAdminRole(actor, actor == owner ? admin : owner, false);
+                        successes.incrementAndGet();
+                    } catch (AccessDeniedException exception) {
+                        denied.incrementAndGet();
+                    }
+                });
+        assertThat(successes.get()).isEqualTo(1);
+        assertThat(denied.get()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM users WHERE role='ADMIN'", Long.class))
+                .isEqualTo(1);
     }
 
     private void concurrently(Runnable action) throws Exception {

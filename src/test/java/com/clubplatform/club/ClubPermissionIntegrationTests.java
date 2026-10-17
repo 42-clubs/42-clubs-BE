@@ -45,7 +45,7 @@ class ClubPermissionIntegrationTests {
         var club = clubs.saveAndFlush(new Club("A", "Summary", "Description"));
         var another = clubs.saveAndFlush(new Club("B", "Summary", "Description"));
         var relation = managers.saveAndFlush(new ClubManager(actor, club.getId()));
-        for (String role : new String[] {"USER", "ADMIN", "SUPER_ADMIN"}) {
+        for (String role : new String[] {"USER", "ADMIN"}) {
             jdbc.update("UPDATE users SET role=? WHERE id=?", role, actor);
             assertThatCode(() -> permissions.requireManager(actor, club.getId()))
                     .doesNotThrowAnyException();
@@ -79,6 +79,8 @@ class ClubPermissionIntegrationTests {
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThatThrownBy(() -> managers.saveAndFlush(new ClubManager(actor, Long.MAX_VALUE)))
                 .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("UPDATE users SET role='SUPER_ADMIN'"))
+                .isInstanceOf(DataIntegrityViolationException.class);
         assertThatThrownBy(() -> jdbc.update("UPDATE users SET role='OWNER'"))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThatThrownBy(() -> jdbc.update("DELETE FROM users WHERE id=?", actor))
@@ -93,11 +95,11 @@ class ClubPermissionIntegrationTests {
         String sql = bootstrapSql();
         jdbc.execute(sql);
         jdbc.execute(sql);
-        long superId = jdbc.queryForObject("SELECT id FROM users WHERE intra_id=9001", Long.class);
+        long adminId = jdbc.queryForObject("SELECT id FROM users WHERE intra_id=9001", Long.class);
         long chairId = jdbc.queryForObject("SELECT id FROM users WHERE intra_id=9002", Long.class);
-        assertThat(users.synchronize42Profile(9001, "renamed-super", "New Super").id())
-                .isEqualTo(superId);
-        assertThat(users.findIdentity(superId).orElseThrow().role()).isEqualTo("SUPER_ADMIN");
+        assertThat(users.synchronize42Profile(9001, "renamed-admin", "New Admin").id())
+                .isEqualTo(adminId);
+        assertThat(users.findIdentity(adminId).orElseThrow().role()).isEqualTo("ADMIN");
         assertThat(users.synchronize42Profile(9002, "renamed-chair", "New Chair").id())
                 .isEqualTo(chairId);
         assertThat(users.findIdentity(chairId).orElseThrow().role()).isEqualTo("USER");
@@ -105,7 +107,7 @@ class ClubPermissionIntegrationTests {
         assertThat(clubs.count()).isEqualTo(1);
         permissions.requireManager(chairId, clubs.findAll().get(0).getId());
         assertThatThrownBy(
-                        () -> permissions.requireManager(superId, clubs.findAll().get(0).getId()))
+                        () -> permissions.requireManager(adminId, clubs.findAll().get(0).getId()))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
@@ -133,12 +135,12 @@ class ClubPermissionIntegrationTests {
                         "Summary",
                         "club_description",
                         "Description",
-                        "super_intra_id",
+                        "admin_intra_id",
                         "9001",
-                        "super_login",
-                        "super",
-                        "super_name",
-                        "Super",
+                        "admin_login",
+                        "admin",
+                        "admin_name",
+                        "Admin",
                         "manager_intra_id",
                         "9002",
                         "manager_login",

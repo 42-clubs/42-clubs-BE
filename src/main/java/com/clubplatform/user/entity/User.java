@@ -1,6 +1,5 @@
 package com.clubplatform.user.entity;
 
-import com.clubplatform.global.exception.ConflictException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -57,12 +56,8 @@ public class User {
         this.role = UserRole.USER;
     }
 
-    /** 최고 관리자 역할을 보호하며 운영 역할만 변경한다. */
+    /** 서비스가 마지막 ADMIN 보호를 확인한 뒤 운영 역할을 변경한다. */
     public void changeAdminRole(boolean granted) {
-        if (role == UserRole.SUPER_ADMIN) {
-            throw new ConflictException(
-                    "SUPER_ADMIN_ROLE_PROTECTED", "최고 관리자 역할은 이 API로 변경할 수 없습니다.");
-        }
         role = granted ? UserRole.ADMIN : UserRole.USER;
     }
 

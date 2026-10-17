@@ -67,8 +67,8 @@ class FrontendLiveIntegrationTests {
     void frontendApiFunctionsUseRealHttpSessionsCsrfAndDatabase() throws Exception {
         String frontend = System.getProperty("fe.repo.path");
         assertThat(frontend).as("Set -PfeRepoPath to the installed FE repository").isNotBlank();
-        String[] names = {"super", "admin", "manager", "member", "outsider"};
-        String[] roles = {"SUPER_ADMIN", "ADMIN", "USER", "USER", "USER"};
+        String[] names = {"operator", "admin", "manager", "member", "outsider"};
+        String[] roles = {"ADMIN", "ADMIN", "USER", "USER", "USER"};
         for (int i = 0; i < names.length; i++) {
             jdbc.update(
                     "INSERT INTO users (id,intra_id,intra_login,display_name,role,created_at,updated_at)"
@@ -185,7 +185,7 @@ class FrontendLiveIntegrationTests {
                         }
                         int id = Integer.parseInt(token.substring(7));
                         String name =
-                                new String[] {"super", "admin", "manager", "member", "outsider"}
+                                new String[] {"operator", "admin", "manager", "member", "outsider"}
                                         [id - 9001];
                         String body =
                                 "{\"id\":"

@@ -1,6 +1,6 @@
 # 데이터 모델과 ERD
 
-실제 DB에는 `users`([V1](../src/main/resources/db/migration/V1__create_users.sql))와 `clubs`([V2](../src/main/resources/db/migration/V2__create_clubs.sql)), `club_managers`([V3](../src/main/resources/db/migration/V3__add_super_admin_and_club_managers.sql))가 있습니다. V3는 users.role CHECK에도 SUPER_ADMIN을 추가합니다.
+실제 DB에는 `users`([V1](../src/main/resources/db/migration/V1__create_users.sql))와 `clubs`([V2](../src/main/resources/db/migration/V2__create_clubs.sql)), `club_managers`([V3](../src/main/resources/db/migration/V3__add_super_admin_and_club_managers.sql))가 있습니다. V3는 당시 SUPER_ADMIN을 추가했고, [V11](../src/main/resources/db/migration/V11__merge_super_admin_into_admin.sql)은 기존 SUPER_ADMIN을 ADMIN으로 전환한 뒤 users.role CHECK를 USER/ADMIN으로 제한합니다.
 V4에 club_members, V5에 notices, V6에 activities·activity_images·activity_participants·image_uploads, V7에 gatherings·gathering_sessions·gathering_session_participants, V8에 notices.visibility, V9에 announcements, V10에 gathering_sessions.title을 구현했습니다. 부원·기본 출결은 아래 MVP 설계에 포함하고 참가 승인제·고정 멤버는 [후속 스키마](future-design.md#후속-스키마)에 분리합니다.
 
 - [관계도](#관계도) · [공통 규칙](#공통-규칙)
@@ -10,7 +10,7 @@ V4에 club_members, V5에 notices, V6에 activities·activity_images·activity_p
 
 ## 관계도
 
-아래 관계는 V1~V10에 구현되어 있습니다. 아래 도식에는 부원·기본 출결을 포함하며 고정 멤버 관계는 후속 설계입니다.
+아래 관계는 V1~V11에 구현되어 있습니다. 아래 도식에는 부원·기본 출결을 포함하며 고정 멤버 관계는 후속 설계입니다.
 
 ```mermaid
 erDiagram
@@ -51,11 +51,11 @@ erDiagram
 | intra_id | BIGINT | O | UNIQUE, 42 계정 연결 기준 |
 | intra_login | VARCHAR(100) | O | Intra 로그인명, 계정 연결 기준으로 사용하지 않음 |
 | display_name | VARCHAR(100) | O | 표시 이름 |
-| role | VARCHAR(20) | O | USER / ADMIN / SUPER_ADMIN, 기본값 USER |
+| role | VARCHAR(20) | O | USER / ADMIN, 기본값 USER |
 | created_at | TIMESTAMPTZ | O | 계정 생성 시각 |
 | updated_at | TIMESTAMPTZ | O | 수정 시각 |
 
-- 위 표는 V1·V3·User 엔티티의 구현 상태입니다. V3가 role CHECK에 SUPER_ADMIN을 추가하며 기존 V1은 유지합니다. account_status·BLACKHOLED 상태·식별 정보의 조건부 NULL 제약은 추가하지 않습니다.
+- 위 표는 V11·User 엔티티의 현재 구현 상태입니다. V1·V3는 이미 적용된 이력으로 유지하고 V11에서 역할을 통합합니다. 사용자 ID·회장·부원·게시물 참조는 변경하지 않습니다. account_status·BLACKHOLED 상태·식별 정보의 조건부 NULL 제약은 추가하지 않습니다.
 - 현재 내부 id와 UNIQUE intra_id를 분리합니다. 숫자 intra_id는 UNIQUE 계정 연결 키, intra_login은 표시·검색 값으로 유지합니다. 로그인명을 PK로 바꾸지 않습니다.
 
 계정 생성·권한 부여 정책은 [도메인 문서](domain-model.md#사용자-역할과-동아리-관리-권한)를 참조합니다.
@@ -160,7 +160,7 @@ V3로 구현되었습니다. 동아리별 조회용 INDEX(club_id)도 적용했�
 | updated_at | TIMESTAMPTZ | O | 수정 시각 |
 | deleted_at | TIMESTAMPTZ | X | NULL이면 미삭제, 값이 있으면 논리 삭제 시각 |
 
-V8에서 visibility VARCHAR(20) NOT NULL DEFAULT 'MEMBERS_ONLY'와 허용값 CHECK를 추가했습니다. 기존 공지도 MEMBERS_ONLY로 전환합니다. 작성은 ADMIN·SUPER_ADMIN 또는 해당 ACTIVE 동아리의 현재 회장 관계로 검사합니다. 조회는 visibility와 현재 부원·관리 권한으로 필터링합니다. deleted_at은 V5에 포함하며 삭제 실행은 후속입니다.
+V8에서 visibility VARCHAR(20) NOT NULL DEFAULT 'MEMBERS_ONLY'와 허용값 CHECK를 추가했습니다. 기존 공지도 MEMBERS_ONLY로 전환합니다. 작성은 ADMIN 또는 해당 ACTIVE 동아리의 현재 회장 관계로 검사합니다. 조회는 visibility와 현재 부원·관리 권한으로 필터링합니다. deleted_at은 V5에 포함하며 삭제 실행은 후속입니다.
 
 ## announcements
 

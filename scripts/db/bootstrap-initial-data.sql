@@ -6,8 +6,8 @@ CREATE TEMP TABLE bootstrap_validation (
     valid BOOLEAN NOT NULL CHECK (valid)
 ) ON COMMIT DROP;
 INSERT INTO bootstrap_validation VALUES (
-    :'super_intra_id'::BIGINT > 0 AND :'manager_intra_id'::BIGINT > 0
-    AND btrim(:'super_login') <> '' AND btrim(:'super_name') <> ''
+    :'admin_intra_id'::BIGINT > 0 AND :'manager_intra_id'::BIGINT > 0
+    AND btrim(:'admin_login') <> '' AND btrim(:'admin_name') <> ''
     AND btrim(:'manager_login') <> '' AND btrim(:'manager_name') <> ''
     AND btrim(:'club_name') <> '' AND btrim(:'club_summary') <> ''
     AND btrim(:'club_description') <> ''
@@ -35,13 +35,13 @@ WITH inserted AS (
 INSERT INTO bootstrap_club SELECT id FROM inserted;
 
 INSERT INTO users (intra_id, intra_login, display_name, role, created_at, updated_at)
-VALUES (:'super_intra_id'::BIGINT, :'super_login', :'super_name', 'SUPER_ADMIN',
+VALUES (:'admin_intra_id'::BIGINT, :'admin_login', :'admin_name', 'ADMIN',
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (intra_id) DO UPDATE
 SET intra_login = EXCLUDED.intra_login, display_name = EXCLUDED.display_name,
-    role = 'SUPER_ADMIN', updated_at = CURRENT_TIMESTAMP;
+    role = 'ADMIN', updated_at = CURRENT_TIMESTAMP;
 
--- A chair starts as USER; an existing ADMIN/SUPER_ADMIN role is preserved.
+-- A chair starts as USER; an existing ADMIN role is preserved.
 INSERT INTO users (intra_id, intra_login, display_name, role, created_at, updated_at)
 VALUES (:'manager_intra_id'::BIGINT, :'manager_login', :'manager_name', 'USER',
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
@@ -57,6 +57,6 @@ ON CONFLICT (user_id, club_id) DO NOTHING;
 
 SELECT id, name, operation_status FROM clubs WHERE id IN (SELECT id FROM bootstrap_club);
 SELECT id, intra_id, intra_login, role FROM users
-WHERE intra_id IN (:'super_intra_id'::BIGINT, :'manager_intra_id'::BIGINT);
+WHERE intra_id IN (:'admin_intra_id'::BIGINT, :'manager_intra_id'::BIGINT);
 SELECT user_id, club_id FROM club_managers WHERE club_id IN (SELECT id FROM bootstrap_club);
 COMMIT;
