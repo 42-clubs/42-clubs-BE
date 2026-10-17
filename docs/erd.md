@@ -10,7 +10,7 @@ V4에 club_members, V5에 notices, V6에 activities·activity_images·activity_p
 
 ## 관계도
 
-아래 관계는 V1~V11에 구현되어 있습니다. 아래 도식에는 부원·기본 출결을 포함하며 고정 멤버 관계는 후속 설계입니다.
+아래 관계는 V1~V12에 구현되어 있습니다. 아래 도식에는 부원·기본 출결을 포함하며 고정 멤버 관계는 후속 설계입니다.
 
 ```mermaid
 erDiagram
@@ -45,17 +45,20 @@ erDiagram
 
 ## users
 
+[V12](../src/main/resources/db/migration/V12__add_user_profile_image_url.sql)는 nullable 프로필 이미지 URL을 추가합니다. 파일은 저장하지 않으며 별도 인덱스·외래 키·기존 데이터 일괄 조회는 추가하지 않습니다.
+
 | 컬럼 | 타입 | 필수 | 제약 및 의미 |
 | --- | --- | --- | --- |
 | id | BIGINT | O | PK |
 | intra_id | BIGINT | O | UNIQUE, 42 계정 연결 기준 |
 | intra_login | VARCHAR(100) | O | Intra 로그인명, 계정 연결 기준으로 사용하지 않음 |
 | display_name | VARCHAR(100) | O | 표시 이름 |
+| profile_image_url | TEXT | X | 42 medium 프로필 이미지 HTTPS URL, 기존 사용자는 다음 로그인 전까지 NULL |
 | role | VARCHAR(20) | O | USER / ADMIN, 기본값 USER |
 | created_at | TIMESTAMPTZ | O | 계정 생성 시각 |
 | updated_at | TIMESTAMPTZ | O | 수정 시각 |
 
-- 위 표는 V11·User 엔티티의 현재 구현 상태입니다. V1·V3는 이미 적용된 이력으로 유지하고 V11에서 역할을 통합합니다. 사용자 ID·회장·부원·게시물 참조는 변경하지 않습니다. account_status·BLACKHOLED 상태·식별 정보의 조건부 NULL 제약은 추가하지 않습니다.
+- 위 표는 V12·User 엔티티의 현재 구현 상태입니다. V1·V3는 이미 적용된 이력으로 유지하고 V11에서 역할을 통합합니다. 사용자 ID·회장·부원·게시물 참조는 변경하지 않습니다. account_status·BLACKHOLED 상태·식별 정보의 조건부 NULL 제약은 추가하지 않습니다.
 - 현재 내부 id와 UNIQUE intra_id를 분리합니다. 숫자 intra_id는 UNIQUE 계정 연결 키, intra_login은 표시·검색 값으로 유지합니다. 로그인명을 PK로 바꾸지 않습니다.
 
 계정 생성·권한 부여 정책은 [도메인 문서](domain-model.md#사용자-역할과-동아리-관리-권한)를 참조합니다.

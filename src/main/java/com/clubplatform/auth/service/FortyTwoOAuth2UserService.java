@@ -3,6 +3,7 @@ package com.clubplatform.auth.service;
 import com.clubplatform.global.security.AuthenticatedUser;
 import com.clubplatform.user.dto.UserIdentity;
 import com.clubplatform.user.service.UserAccountService;
+import java.net.URI;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -39,10 +40,32 @@ public class FortyTwoOAuth2UserService extends DefaultOAuth2UserService {
             String login = text(attributes, "login");
             Object displayName = attributes.get("displayname");
             String name = displayName instanceof String value && !value.isBlank() ? value : login;
-            UserIdentity user = userAccountService.synchronize42Profile(intraId, login, name);
+            UserIdentity user =
+                    userAccountService.synchronize42Profile(
+                            intraId, login, name, mediumProfileImageUrl(attributes));
             return new AuthenticatedUser(user.id(), user.role());
         } catch (IllegalArgumentException exception) {
             throw failure("invalid_42_profile");
+        }
+    }
+
+    /** 선택 정보인 이미지가 누락되거나 잘못되어도 로그인은 허용한다. */
+    private static String mediumProfileImageUrl(Map<String, Object> attributes) {
+        if (!(attributes.get("image") instanceof Map<?, ?> image)
+                || !(image.get("versions") instanceof Map<?, ?> versions)
+                || !(versions.get("medium") instanceof String url)
+                || url.isBlank()) {
+            return null;
+        }
+        try {
+            URI uri = URI.create(url);
+            return "https".equalsIgnoreCase(uri.getScheme())
+                            && uri.getHost() != null
+                            && uri.getRawUserInfo() == null
+                    ? url
+                    : null;
+        } catch (IllegalArgumentException exception) {
+            return null;
         }
     }
 

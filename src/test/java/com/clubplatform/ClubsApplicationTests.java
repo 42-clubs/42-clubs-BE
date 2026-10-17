@@ -32,7 +32,7 @@ class ClubsApplicationTests {
     void contextLoadsWithMigratedAndValidatedSchema() {
         assertThat(flyway.info().applied())
                 .extracting(migration -> migration.getVersion().getVersion())
-                .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11");
+                .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12");
         assertThat(flyway.info().pending()).isEmpty();
         flyway.validate();
     }
@@ -52,6 +52,7 @@ class ClubsApplicationTests {
         assertThat(loaded.getIntraId()).isEqualTo(42L);
         assertThat(loaded.getIntraLogin()).isEqualTo("testuser");
         assertThat(loaded.getDisplayName()).isEqualTo("Test User");
+        assertThat(loaded.getProfileImageUrl()).isNull();
         assertThat(loaded.getRole()).isEqualTo(UserRole.USER);
         assertThat(loaded.getCreatedAt()).isNotNull();
         assertThat(loaded.getUpdatedAt()).isEqualTo(loaded.getCreatedAt());

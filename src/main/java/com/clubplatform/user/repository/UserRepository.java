@@ -29,15 +29,17 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     @Query(
             value =
                     """
-        INSERT INTO users (intra_id, intra_login, display_name, role, created_at, updated_at)
-        VALUES (:intraId, :login, :name, 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        INSERT INTO users (intra_id, intra_login, display_name, profile_image_url, role, created_at, updated_at)
+        VALUES (:intraId, :login, :name, :profileImageUrl, 'USER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         ON CONFLICT (intra_id) DO UPDATE
         SET intra_login = EXCLUDED.intra_login, display_name = EXCLUDED.display_name,
+            profile_image_url = EXCLUDED.profile_image_url,
             updated_at = CURRENT_TIMESTAMP
         """,
             nativeQuery = true)
     void synchronize42Profile(
             @Param("intraId") long intraId,
             @Param("login") String login,
-            @Param("name") String name);
+            @Param("name") String name,
+            @Param("profileImageUrl") String profileImageUrl);
 }

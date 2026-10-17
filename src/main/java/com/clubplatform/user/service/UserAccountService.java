@@ -17,9 +17,15 @@ public class UserAccountService {
 
     @Transactional
     public UserIdentity synchronize42Profile(long intraId, String login, String displayName) {
+        return synchronize42Profile(intraId, login, displayName, null);
+    }
+
+    @Transactional
+    public UserIdentity synchronize42Profile(
+            long intraId, String login, String displayName, String profileImageUrl) {
         // 엔티티 생성 규칙을 공유하며 외부 응답이 DB 제약을 위반하지 않도록 검증한다.
         new User(intraId, login, displayName);
-        userRepository.synchronize42Profile(intraId, login, displayName);
+        userRepository.synchronize42Profile(intraId, login, displayName, profileImageUrl);
         return identity(userRepository.findByIntraId(intraId).orElseThrow());
     }
 
@@ -35,7 +41,11 @@ public class UserAccountService {
                         .findById(userId)
                         .orElseThrow(() -> new ResourceNotFoundException("사용자를 찾을 수 없습니다."));
         return new MeResponse(
-                user.getId(), user.getIntraLogin(), user.getDisplayName(), user.getRole().name());
+                user.getId(),
+                user.getIntraLogin(),
+                user.getDisplayName(),
+                user.getRole().name(),
+                user.getProfileImageUrl());
     }
 
     private static UserIdentity identity(User user) {

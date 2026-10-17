@@ -11,6 +11,7 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -127,6 +129,120 @@ class AuthIntegrationTests {
                 .andExpect(jsonPath("$.intraLogin").value("newlogin"))
                 .andExpect(jsonPath("$.role").value("ADMIN"));
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM users", Long.class)).isEqualTo(1);
+    }
+
+    @Test
+    void mediumImageIsStoredReturnedAndUpdatedWithoutChangingIdentityOrRole() throws Exception {
+        String originalUrl = "https://images.example.test/medium/avatar.jpg?version=1";
+        profileWithImage(
+                Map.of(
+                        "versions",
+                        Map.of(
+                                "medium", originalUrl,
+                                "large", "https://images.example.test/large/avatar.jpg",
+                                "small", "https://images.example.test/small/avatar.jpg")));
+        var firstSession = login();
+        long originalId = jdbc.queryForObject("SELECT id FROM users", Long.class);
+        var createdAt =
+                jdbc.queryForObject("SELECT created_at FROM users", java.time.OffsetDateTime.class);
+        mvc.perform(get("/api/v1/me").session(firstSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.profileImageUrl").value(originalUrl));
+        assertThat(jdbc.queryForObject("SELECT profile_image_url FROM users", String.class))
+                .isEqualTo(originalUrl);
+        jdbc.update("UPDATE users SET role='ADMIN'");
+        String updatedUrl = "https://images.example.test/medium/new-avatar.jpg";
+        profileWithImage(Map.of("versions", Map.of("medium", updatedUrl)));
+        mvc.perform(get("/api/v1/me").session(login()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(originalId))
+                .andExpect(jsonPath("$.role").value("ADMIN"))
+                .andExpect(jsonPath("$.profileImageUrl").value(updatedUrl));
+        assertThat(jdbc.queryForObject("SELECT profile_image_url FROM users", String.class))
+                .isEqualTo(updatedUrl);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT created_at FROM users", java.time.OffsetDateTime.class))
+                .isEqualTo(createdAt);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM users", Long.class)).isEqualTo(1);
+        // 기존 세션도 최신 DB 값을 반환하며 42 API를 다시 조회하지 않는다.
+        profile = Map.of();
+        mvc.perform(get("/api/v1/me").session(firstSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.profileImageUrl").value(updatedUrl));
+    }
+
+    @ParameterizedTest
+    @MethodSource("unavailableImages")
+    void unavailableImageAllowsLoginAndClearsPreviouslyStoredUrl(Object image) throws Exception {
+        profileWithImage(image);
+        var session = login();
+        assertNullProfileImage(session);
+        jdbc.update("UPDATE users SET profile_image_url='https://images.example.test/old.jpg'");
+        assertNullProfileImage(login());
+    }
+
+    static java.util.stream.Stream<Object> unavailableImages() {
+        return java.util.stream.Stream.of(
+                null,
+                "invalid-image",
+                Map.of(),
+                Map.of("versions", "invalid-versions"),
+                Map.of("versions", Map.of("large", "https://images.example.test/large.jpg")),
+                Map.of("versions", Map.of("medium", 42)),
+                Map.of("versions", Map.of("medium", "  ")),
+                Map.of("versions", Map.of("medium", "not a URL")),
+                Map.of("versions", Map.of("medium", "/relative.jpg")),
+                Map.of("versions", Map.of("medium", "http://images.example.test/avatar.jpg")),
+                Map.of("versions", Map.of("medium", "javascript:alert(1)")),
+                Map.of(
+                        "versions",
+                        Map.of("medium", "https://user:password@images.example.test/avatar.jpg")));
+    }
+
+    @Test
+    void existingAccountHasNullImageUntilItsNextLogin() throws Exception {
+        jdbc.update(
+                """
+                INSERT INTO users (intra_id, intra_login, display_name, role, created_at, updated_at)
+                VALUES (4242, 'before-login', 'Initial User', 'ADMIN', now(), now())
+                """);
+        long originalId = jdbc.queryForObject("SELECT id FROM users", Long.class);
+        assertThat(jdbc.queryForObject("SELECT profile_image_url FROM users", String.class))
+                .isNull();
+        String url = "https://images.example.test/medium/avatar.jpg";
+        profileWithImage(Map.of("versions", Map.of("medium", url)));
+        mvc.perform(get("/api/v1/me").session(login()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(originalId))
+                .andExpect(jsonPath("$.role").value("ADMIN"))
+                .andExpect(jsonPath("$.profileImageUrl").value(url));
+    }
+
+    private void profileWithImage(Object image) {
+        var updated = new HashMap<>(profile);
+        updated.put("image", image);
+        profile = updated;
+    }
+
+    private void assertNullProfileImage(MockHttpSession session) throws Exception {
+        var response =
+                mvc.perform(get("/api/v1/me").session(session))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        var body = mapper.readTree(response.getResponse().getContentAsString());
+        assertThat(body.has("profileImageUrl")).isTrue();
+        assertThat(body.get("profileImageUrl").isNull()).isTrue();
+        assertThat(jdbc.queryForObject("SELECT profile_image_url FROM users", String.class))
+                .isNull();
+    }
+
+    @Test
+    void missingImageAllowsLoginAndClearsPreviouslyStoredUrl() throws Exception {
+        var session = login();
+        assertNullProfileImage(session);
+        jdbc.update("UPDATE users SET profile_image_url='https://images.example.test/old.jpg'");
+        assertNullProfileImage(login());
     }
 
     @Test

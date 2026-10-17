@@ -69,13 +69,14 @@
 | GET | /login/oauth2/code/42 | 코드·state 검증 및 사용자 생성·갱신, 세션 ID 교체, 성공 URL로 302 이동 | OAuth 콜백 |
 | GET | /api/v1/auth/csrf | 현재 세션의 CSRF headerName·token, 200 | 공개 |
 | POST | /api/v1/auth/logout | 세션 무효화·JSESSIONID 제거, 204 | 현재 세션 CSRF 필요 |
-| GET | /api/v1/me | id·intraLogin·displayName·role, 200 | 로그인 |
+| GET | /api/v1/me | id·intraLogin·displayName·role·profileImageUrl, 200 | 로그인 |
 
 - 프론트엔드는 API 호출에 세션 쿠키를 포함하고 변경 요청에 `/api/v1/auth/csrf`의 `headerName`을 헤더 이름으로, `token`을 값으로 사용합니다. 로그인·로그아웃 시 CSRF 토큰이 초기화되므로 다시 조회해야 합니다.
 - 세션 쿠키는 HttpOnly이며 로컬은 SameSite=Lax, Secure=false입니다. 배포 설정은 환경 변수로 변경합니다. 로그인 상태는 서버 재시작 시 사라집니다.
 - 인증 없는 보호 API는 401 `UNAUTHENTICATED`, ADMIN 권한 부족과 CSRF 오류는 403 `ACCESS_DENIED`입니다. OAuth state·코드·42 프로필 오류 및 경산 도메인 불일치는 401 `OAUTH_LOGIN_FAILED`이며 외부 오류 세부 내용은 응답하지 않습니다. 서버 WARN 로그에는 안전하게 분류한 실패 사유와 확인 안내를 기록하며, [로그 확인 안내](environment-variables.md#로그인-실패-서버-로그)를 따릅니다.
 - `AUTH_ENABLED=false`이면 OAuth 시작·콜백 기능을 활성화하지 않습니다. 공개 동아리 조회·CSRF API는 유지하며 보호 API는 인증이 필요합니다.
 - `/me`의 role은 USER / ADMIN입니다. 기존 세션에서도 매 요청 DB 역할을 반영합니다. ADMIN은 운영·권한 관리 기능을 수행하고 동아리별 회장·주최자·부원 조건은 별도로 검사합니다. 권한 관리는 아래 구현 계약을 따릅니다.
+- `/me`의 `profileImageUrl`은 저장된 42 medium 이미지 URL(string 또는 null)입니다. 기존 사용자는 다음 로그인 전까지 null이며 이미지 누락·잘못된 구조·빈 값·유효하지 않은 HTTPS URL도 null로 동기화합니다. URL은 유효한 경우 받은 문자열 그대로 반환하며 `/me` 조회 시 42 API를 호출하지 않습니다. 프론트는 null·외부 이미지 로딩 실패 시 기본 아바타를 표시합니다. 사용자 검색·부원·회장·참가자 응답에는 이 필드를 추가하지 않습니다.
 - `/me`에 이메일·42 API 토큰·42 전체 프로필은 포함하지 않습니다. 사용자 계정은 42 ID 기준으로 중복을 방지하고 역할은 DB 기준입니다.
 - JWT 재발급·다른 소셜 계정 연동·사이트 계정 탈퇴는 제공하지 않습니다. 블랙홀 확인과 기존 세션 이용 차단은 MVP에서 제외하며 추후 확장 시 검토합니다.
 
