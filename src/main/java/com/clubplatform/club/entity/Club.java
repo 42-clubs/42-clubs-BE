@@ -72,6 +72,19 @@ public class Club {
         this.operationStatus = OperationStatus.ACTIVE;
     }
 
+    /** 권한 검사 뒤 제공한 필드만 변경하며 검증이 끝나기 전에는 값을 대입하지 않는다. */
+    public void updateBasicInfo(String name, String summary, String description) {
+        String nextName = name == null ? this.name : requireText(name, 100);
+        String nextSummary = summary == null ? this.summary : requireText(summary, 200);
+        String nextDescription =
+                description == null
+                        ? this.description
+                        : requireText(description, Integer.MAX_VALUE);
+        this.name = nextName;
+        this.summary = nextSummary;
+        this.description = nextDescription;
+    }
+
     /** 운영 상태와 모집 계획·일정을 기준으로 주어진 날짜의 모집 상태를 계산한다. */
     public RecruitmentStatus recruitmentStatusOn(LocalDate date) {
         if (!recruitmentPlanned) {

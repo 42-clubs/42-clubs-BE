@@ -2,6 +2,19 @@
 
 정확한 경로·필드·권한·오류는 [API 계약](api-endpoints.md)이 기준입니다. 기능별 전체 엔드포인트는 [부원](api-endpoints.md#동아리-부원-관리) · [공지](api-endpoints.md#공지-작성조회) · [활동](api-endpoints.md#동아리-활동-작성조회) · [활동 참가·출결](api-endpoints.md#활동-참가취소출결) · [소모임·회차](api-endpoints.md#소모임회차-작성조회) · [회차 참가·출결](api-endpoints.md#회차-참가취소출결)에 정리했습니다. 아래 ID와 날짜는 설명용입니다. 생성 시각은 실제 요청 시점보다 미래로 지정합니다. 변경 요청에는 로그인 세션 쿠키와 현재 CSRF 토큰을 함께 전달합니다.
 
+## 동아리 기본정보 부분 수정
+
+```http
+PATCH /api/v1/clubs/1
+Content-Type: application/json
+Cookie: JSESSIONID=...
+X-CSRF-TOKEN: ...
+
+{"summary":"새 요약","description":"새 소개"}
+```
+
+ACTIVE 동아리의 현재 회장 또는 ADMIN이 보내면 204를 받습니다. 이름은 보낸 항목에 없으므로 유지합니다. 이름 변경은 ADMIN이 `{"name":"새 이름"}`으로 요청합니다. ARCHIVED에서는 세 필드 모두 ADMIN만 수정할 수 있습니다. 회장이 이름과 소개를 함께 보내면 전체 403이고 소개도 변경하지 않습니다. null·빈 객체·알 수 없는 필드는 400이며 상세 조건은 [수정 계약](api-endpoints.md#동아리-기본정보-수정--구현-계약)을 따릅니다.
+
 ## 부원 등록·현황·명단
 
 ```http

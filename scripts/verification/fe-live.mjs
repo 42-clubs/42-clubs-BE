@@ -214,6 +214,39 @@ try {
     await accessApi.setManager("1", users.member.id, false);
     done(group);
 
+    group = "club basic info field permissions and archive rules";
+    const originalClub = await clubApi.detailPublic("1");
+    as("manager");
+    await http.patch("/clubs/1", { summary: "Chair summary", description: "Chair description" });
+    await denied(403, () => http.patch("/clubs/1", { name: originalClub.name, summary: "Denied" }));
+    assert.equal((await clubApi.detailPublic("1")).summary, "Chair summary");
+    as("outsider");
+    await denied(403, () => http.patch("/clubs/1", { summary: "Denied" }));
+    as("admin");
+    await http.patch("/clubs/1", { name: "Updated live club" });
+    await denied(400, () => http.patch("/clubs/1", { name: "Denied", operationStatus: "ARCHIVED" }));
+    await accessApi.setManager("106", users.manager.id, true);
+    as("manager");
+    await denied(403, () => http.patch("/clubs/106", { description: "Denied" }));
+    as("admin");
+    await http.patch("/clubs/106", { name: "Updated archive", summary: "Archive summary", description: "Archive description" });
+    await accessApi.setManager("106", users.manager.id, false);
+    as("anonymous");
+    const updatedClub = await clubApi.detailPublic("1");
+    assert.equal(updatedClub.name, "Updated live club");
+    assert.equal(updatedClub.summary, "Chair summary");
+    assert.equal(updatedClub.description, "Chair description");
+    assert.equal(updatedClub.operationStatus, "ACTIVE");
+    assert.equal(updatedClub.createdAt, originalClub.createdAt);
+    assert.equal(updatedClub.memberCount, originalClub.memberCount);
+    const updatedArchive = await clubApi.detailPublic("106");
+    assert.equal(updatedArchive.name, "Updated archive");
+    assert.equal(updatedArchive.operationStatus, "ARCHIVED");
+    // Initialize Node's anonymous cookie jar before the FE interceptor fetches CSRF.
+    await http.get("/auth/csrf");
+    await denied(401, () => http.patch("/clubs/1", { summary: "Denied" }));
+    done(group);
+
     group = "recent activity public counts and organizer attendance";
     as("anonymous");
     const recent = (await clubApi.detailPublic("106")).recentActivity;
